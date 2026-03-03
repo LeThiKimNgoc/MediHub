@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
+  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (Cho phép mọi thiết bị) ---
   const handlePatientLogin = () => {
     if (!patientId.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập hoặc quét Mã Bệnh Nhân của bạn.');
@@ -67,12 +68,32 @@ export default function LoginScreen() {
       });
   };
 
+  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (CHỈ CHO PHÉP MÁY TÍNH) ---
   const handleAdminLogin = () => {
     if (!username.trim() || !password.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
       return;
     }
 
+    // 🔥 TRẠM KIỂM SOÁT AN NINH: XÁC ĐỊNH THIẾT BỊ 🔥
+    let isMobileDevice = Platform.OS !== 'web'; // Nếu là App iOS/Android thì 100% là điện thoại
+    if (Platform.OS === 'web') {
+      // Nếu là Web, kiểm tra xem có phải mở bằng trình duyệt điện thoại (Safari/Chrome Mobile) không
+      isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    }
+
+    // NẾU LÀ ĐIỆN THOẠI -> CHẶN LẠI NGAY LẬP TỨC
+    if (isMobileDevice) {
+      const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chứa nhiều dữ liệu bảng biểu phức tạp. Vui lòng mở trang web này trên Máy tính (PC/Laptop) để đăng nhập và làm việc hiệu quả nhất!';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Không Hỗ Trợ Điện Thoại', msg);
+      }
+      return; // Cắt đứt luồng đăng nhập tại đây
+    }
+
+    // VƯỢT QUA KIỂM TRA (ĐANG DÙNG MÁY TÍNH) -> CHO PHÉP ĐĂNG NHẬP
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -171,6 +192,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* BỆNH NHÂN */}
           {role === 'patient' && (
             <View style={styles.inputSection}>
               <Text style={styles.label}>Mã hồ sơ bệnh nhân:</Text>
@@ -198,6 +220,7 @@ export default function LoginScreen() {
             </View>
           )}
 
+          {/* ADMIN */}
           {role === 'admin' && (
             <View style={styles.inputSection}>
               <View style={styles.inputWrapper}>

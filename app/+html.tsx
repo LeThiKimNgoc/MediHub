@@ -10,12 +10,12 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
         {/* 🔥 BỘ GEN SEO CHUẨN "NGÀNH DƯỢC" CHO ZALO / FACEBOOK 🔥 */}
-        <title>MediHub - Hệ Thống Quản Lý Dược Phẩm</title>
-        <meta name="description" content="Nền tảng quản lý danh mục D&C và theo dõi lịch dùng thuốc chuyên nghiệp." />
+        <title>MediHub - Nền Tảng Y Tế Thông Minh</title>
+        <meta name="description" content="Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp. Đồng hành sức khỏe mỗi ngày." />
 
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://medi-hub-beige.vercel.app/" />
-        <meta property="og:title" content="MediHub - Quản Lý Dược Phẩm Thông Minh 💊" />
+        <meta property="og:title" content="MediHub - Nền Tảng Y Tế Thông Minh" />
         <meta property="og:description" content="Trợ lý đắc lực của Dược sĩ. Quản lý danh mục D&C và nhắc nhở bệnh nhân tuân thủ điều trị." />
         
         {/* 🔥 BANNER CHUẨN DƯỢC SĨ (Hình ảnh vỉ thuốc sạch sẽ, chuyên nghiệp, siêu nhẹ) 🔥 */}
