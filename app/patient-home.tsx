@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity, Modal, Alert, Platform, RefreshControl, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity, Modal, Alert, Platform, RefreshControl, Linking, Image, TextInput } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router'; 
@@ -48,6 +47,12 @@ export default function PatientHomeScreen() {
   const [isProfileModalVisible, setProfileModalVisible] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+
+  // 🔥 STATE CHO MENU HOTLINE & GÓP Ý 🔥
+  const [isSosModalVisible, setSosModalVisible] = useState(false);
+  const [isFeedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -218,7 +223,6 @@ export default function PatientHomeScreen() {
     fetchHistoryLogs(true);
   }, [patientId]);
 
-  // 🔥 THUẬT TOÁN TÍNH SỐ LƯỢNG THUỐC CÒN LẠI THÔNG MINH 🔥
   const calculateRemaining = (med) => {
     if (!med.Quantity || historyLogs.length === 0) return med.Quantity;
     
@@ -280,6 +284,46 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ.'); } finally { setIsLogging(false); }
   };
 
+  // 🔥 XỬ LÝ GỬI GÓP Ý VĂN BẢN (Dùng chung Sheet Log) 🔥
+  const submitFeedback = async () => {
+    if (!feedbackText.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập nội dung góp ý.');
+      return;
+    }
+    setIsSubmittingFeedback(true);
+    
+    // Khéo léo tận dụng Sheet Log hiện tại: MedicineName để trống, Action ghi "Góp ý", Status ghi nội dung góp ý
+    const feedbackPayload = { 
+      action: 'add', 
+      sheetName: 'Log', 
+      data: { 
+        PatientsID: patientId, 
+        MedicineName: '---', 
+        PlannedTime: '---', 
+        Action: 'Góp ý', 
+        Status: feedbackText 
+      } 
+    };
+
+    try {
+      const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(feedbackPayload) });
+      const textResult = await response.text();
+      let result = JSON.parse(textResult);
+
+      if (result.status === 'success') {
+        Alert.alert('Gửi thành công', 'Cảm ơn bạn đã gửi ý kiến đóng góp! Chúng tôi sẽ phản hồi sớm nhất.');
+        setFeedbackModalVisible(false);
+        setFeedbackText('');
+      } else {
+        Alert.alert('Lỗi Server', result.message);
+      }
+    } catch (error) {
+      Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ để gửi góp ý.');
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có muốn thoát tài khoản?')) router.replace('/');
@@ -288,18 +332,84 @@ export default function PatientHomeScreen() {
     }
   };
 
+  // 🔥 MỞ MENU HOTLINE THAY VÌ HIỆN ALERT MẶC ĐỊNH 🔥
   const handleSOS = () => {
-    if (Platform.OS === 'web') {
-      const wantCall = window.confirm("Bạn cần sự trợ giúp y tế?\n- Bấm [OK] để Gọi điện.\n- Bấm [Cancel] để mở Chat Zalo.");
-      if (wantCall) { Linking.openURL('tel:0901234567'); } else { Linking.openURL('https://zalo.me/0901234567'); }
-      return;
-    }
-    Alert.alert("Liên hệ Bác sĩ", "Bạn cần sự trợ giúp y tế? Hãy chọn phương thức liên hệ bên dưới:", [{ text: "Hủy bỏ", style: "cancel" }, { text: "Gọi Hotline", onPress: () => Linking.openURL('tel:0901234567') }, { text: "Chat Zalo", onPress: () => Linking.openURL('https://zalo.me/0901234567') }]);
+    setSosModalVisible(true);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       
+      {/* MODAL HOTLINE / MENU GÓP Ý CHUYÊN NGHIỆP */}
+      <Modal visible={isSosModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="headset" size={30} color={colors.primary} style={{ marginRight: 10 }} />
+              <Text style={styles.modalTitle}>Liên Hệ & Góp Ý</Text>
+            </View>
+            <Text style={{ fontSize: 15, color: colors.textLight, marginBottom: 20 }}>Bạn cần hỗ trợ từ Phòng khám hoặc muốn gửi phản hồi?</Text>
+
+            <View style={{ gap: 12 }}>
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#E3F2FD', borderColor: '#2196F3' }]} onPress={() => { setSosModalVisible(false); Linking.openURL('https://zalo.me/0901234567'); }}>
+                <MaterialCommunityIcons name="chat-processing" size={26} color="#2196F3" />
+                <Text style={[styles.sosMenuText, { color: '#2196F3' }]}>Nhắn tin Zalo ngay</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#F3E5F5', borderColor: '#9C27B0' }]} onPress={() => { setSosModalVisible(false); setFeedbackModalVisible(true); }}>
+                <MaterialCommunityIcons name="email-edit" size={26} color="#9C27B0" />
+                <Text style={[styles.sosMenuText, { color: '#9C27B0' }]}>Góp ý bằng văn bản</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#FFEBEE', borderColor: colors.danger }]} onPress={() => setSosModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={26} color={colors.danger} />
+                <Text style={[styles.sosMenuText, { color: colors.danger }]}>Hủy bỏ</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL NHẬP VĂN BẢN GÓP Ý */}
+      <Modal visible={isFeedbackModalVisible} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="email-edit" size={30} color="#9C27B0" style={{ marginRight: 10 }} />
+              <Text style={styles.modalTitle}>Gửi Phản Hồi</Text>
+            </View>
+            
+            <Text style={{ fontSize: 14, color: colors.textDark, marginBottom: 15 }}>Xin vui lòng nhập ý kiến, câu hỏi hoặc triệu chứng của bạn vào bên dưới:</Text>
+
+            <TextInput
+              style={styles.feedbackInput}
+              placeholder="Nhập nội dung vào đây..."
+              placeholderTextColor={colors.textLight}
+              multiline={true}
+              numberOfLines={5}
+              value={feedbackText}
+              onChangeText={setFeedbackText}
+              textAlignVertical="top"
+            />
+
+            {isSubmittingFeedback ? (
+              <ActivityIndicator size="large" color="#9C27B0" style={{ marginVertical: 15 }} />
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#9C27B0' }]} onPress={submitFeedback}>
+                  <MaterialCommunityIcons name="send" size={24} color="white" />
+                  <Text style={styles.logBtnText}>Gửi Góp Ý</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#E0E0E0' }]} onPress={() => { setFeedbackModalVisible(false); setFeedbackText(''); }}>
+                  <MaterialCommunityIcons name="close" size={24} color={colors.textDark} />
+                  <Text style={[styles.logBtnText, { color: colors.textDark }]}>Hủy</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* MODAL HỒ SƠ */}
       <Modal visible={isProfileModalVisible} transparent={true} animationType="fade">
         <View style={styles.profileModalOverlay}>
@@ -338,7 +448,6 @@ export default function PatientHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              {/* 🔥 Đổi Icon Pill thành Logo Mắt cho ngầu 🔥 */}
               <Image source={require('../assets/images/favicon.png')} style={{ width: 30, height: 30, marginRight: 10 }} resizeMode="contain" />
               <Text style={styles.modalTitle}>Xác Nhận Sử Dụng Thuốc</Text> 
             </View>
@@ -384,14 +493,21 @@ export default function PatientHomeScreen() {
                   let bgColor = item.Status === 'Đã sử dụng' ? '#E8F5E9' : (item.Status === 'Bỏ lỡ' ? '#FFEBEE' : '#FFF3E0');
                   let iconName: any = item.Status === 'Đã sử dụng' ? 'check-circle' : (item.Status === 'Bỏ lỡ' ? 'close-circle' : 'alarm-snooze');
 
+                  // Đổi màu nếu là tin nhắn góp ý
+                  if (item.Action === 'Góp ý') {
+                    statusColor = '#9C27B0';
+                    bgColor = '#F3E5F5';
+                    iconName = 'email-fast';
+                  }
+
                   return (
                     <View style={styles.historyCard}>
                       <View style={{flex: 1}}>
-                        <Text style={styles.historyMedName}>{item.MedicineName}</Text>
-                        <Text style={styles.historyTime}>Cữ quy định: {item.PlannedTime}</Text>
+                        <Text style={styles.historyMedName}>{item.Action === 'Góp ý' ? '💌 Phản hồi từ Bệnh nhân' : item.MedicineName}</Text>
+                        <Text style={styles.historyTime}>{item.Action === 'Góp ý' ? 'Nội dung:' : `Cữ quy định: ${item.PlannedTime}`}</Text>
                         <Text style={styles.historyTimestamp}>Ghi nhận lúc: {item.Timestamp || 'Hôm nay'}</Text>
                       </View>
-                      <View style={[styles.historyStatusBadge, {backgroundColor: bgColor}]}><MaterialCommunityIcons name={iconName} size={16} color={statusColor} style={{marginRight: 4}} /><Text style={[styles.historyStatusText, {color: statusColor}]}>{item.Status}</Text></View>
+                      <View style={[styles.historyStatusBadge, {backgroundColor: bgColor, maxWidth: 120}]}><MaterialCommunityIcons name={iconName} size={16} color={statusColor} style={{marginRight: 4}} /><Text style={[styles.historyStatusText, {color: statusColor}]} numberOfLines={1}>{item.Status}</Text></View>
                     </View>
                   );
                 }}
@@ -410,7 +526,6 @@ export default function PatientHomeScreen() {
       <View style={styles.appHeader}>
         <TouchableOpacity style={styles.headerProfile} activeOpacity={0.7} onPress={() => { setProfileModalVisible(true); fetchProfileData(); }}>
           
-          {/* 🔥 THAY AVATAR MẶC ĐỊNH BẰNG LOGO PHÒNG KHÁM 🔥 */}
           <View style={styles.avatar}>
             <Image source={require('../assets/images/favicon.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
           </View>
@@ -486,7 +601,7 @@ export default function PatientHomeScreen() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.sosFab} onPress={handleSOS} activeOpacity={0.8}><MaterialCommunityIcons name="phone-in-talk" size={28} color="#FFFFFF" /></TouchableOpacity>
+      <TouchableOpacity style={styles.sosFab} onPress={handleSOS} activeOpacity={0.8}><MaterialCommunityIcons name="chat-question" size={32} color="#FFFFFF" /></TouchableOpacity>
 
     </SafeAreaView>
   );
@@ -512,7 +627,7 @@ const styles = StyleSheet.create({
   warningTitle: { fontSize: 15, fontWeight: 'bold', color: colors.timeColor, marginBottom: 2 },
   warningText: { fontSize: 13, color: colors.textDark, lineHeight: 18 },
 
-  sosFab: { position: 'absolute', bottom: 30, right: 20, zIndex: 9999, elevation: 99, backgroundColor: colors.danger, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, borderWidth: 2, borderColor: '#FFCDD2' },
+  sosFab: { position: 'absolute', bottom: 30, right: 20, zIndex: 9999, elevation: 99, backgroundColor: colors.primary, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, borderWidth: 2, borderColor: '#B2DFDB' },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
   dateHeader: { flexDirection: 'row', alignItems: 'center' },
@@ -566,5 +681,10 @@ const styles = StyleSheet.create({
   toastContainer: { position: 'absolute', top: 120, alignSelf: 'center', backgroundColor: colors.statusDone, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 30, flexDirection: 'row', alignItems: 'center', zIndex: 1000 },
   toastText: { color: 'white', fontWeight: 'bold', marginLeft: 10 },
   emptyContainer: { padding: 50, alignItems: 'center' },
-  emptyText: { color: colors.textLight, textAlign: 'center', fontSize: 16, marginTop: 10 }
+  emptyText: { color: colors.textLight, textAlign: 'center', fontSize: 16, marginTop: 10 },
+
+  // 🔥 STYLE MỚI CHO HOTLINE & PHẢN HỒI 🔥
+  sosMenuBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, elevation: 1 },
+  sosMenuText: { fontSize: 16, fontWeight: 'bold', marginLeft: 15 },
+  feedbackInput: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, fontSize: 16, color: colors.textDark, minHeight: 120, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 }
 });
