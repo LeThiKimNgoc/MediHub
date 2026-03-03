@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+// 🔥 Bổ sung thêm công cụ Head từ expo-router 🔥
+import { router, Head } from 'expo-router';
 import Papa from 'papaparse';
 
 // 🔥 IMPORT CAMERA ĐỂ QUÉT QR 🔥
@@ -55,7 +55,6 @@ export default function LoginScreen() {
             const patient = results.data.find((p: any) => p.PatientID === patientId.trim().toUpperCase());
             setLoading(false);
             if (patient) {
-              // Xóa trắng ô nhập để lần sau không bị dính mã cũ
               setPatientId(''); 
               Alert.alert('Thành công', `Xin chào, ${patient.Name}!`);
               router.push({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
@@ -89,7 +88,6 @@ export default function LoginScreen() {
     }, 1000);
   };
 
-  // 🔥 HÀM MỞ CAMERA QUÉT MÃ 🔥
   const handleOpenScanner = async () => {
     if (Platform.OS === 'web') {
       alert("Chức năng Camera chỉ hoạt động trên thiết bị di động (Điện thoại/Tablet).");
@@ -105,16 +103,26 @@ export default function LoginScreen() {
     setShowScanner(true);
   };
 
-  // 🔥 HÀM XỬ LÝ KHI CAMERA BẮT ĐƯỢC MÃ 🔥
   const handleBarcodeScanned = ({ type, data }) => {
     setShowScanner(false);
-    // Điền mã vào ô nhập liệu
     setPatientId(data.trim().toUpperCase());
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       
+      {/* 🔥 THÊM ĐOẠN HEAD NÀY ĐỂ TẠO GIAO DIỆN CHIA SẺ ZALO/FB XỊN XÒ 🔥 */}
+      <Head>
+        <title>MediHub - Nền Tảng Y Tế Thông Minh</title>
+        <meta name="description" content="Đồng hành sức khỏe mỗi ngày. Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp." />
+        <meta property="og:title" content="MediHub - Nền Tảng Y Tế Thông Minh" />
+        <meta property="og:description" content="Đồng hành sức khỏe mỗi ngày. Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp." />
+        {/* Ảnh bìa to đùng khi chia sẻ link (Có thể thay link ảnh khác nếu muốn) */}
+        <meta property="og:image" content="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop" />
+        <meta property="og:url" content="https://medi-hub-beige.vercel.app" />
+        <meta property="og:type" content="website" />
+      </Head>
+
       {/* 🔥 GIAO DIỆN CAMERA QUÉT QR 🔥 */}
       {showScanner && Platform.OS !== 'web' && (
         <Modal visible={showScanner} animationType="slide" transparent={false}>
@@ -155,11 +163,9 @@ export default function LoginScreen() {
           <MaterialCommunityIcons name="medical-bag" size={120} color="#E2E8F0" style={styles.iconPos3} />
         </View>
 
-        {/* --- LOGO KÍNH MỜ ĐÃ ĐƯỢC THAY BẰNG LOGO PHÒNG KHÁM CHÍNH CHỦ --- */}
         <View style={styles.headerContainer}>
           <View style={styles.brandBox}>
             <View style={styles.brandRow}>
-              {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
               <View style={styles.logoCircle}>
                 <Image source={require('../assets/images/favicon.png')} style={{ width: 34, height: 34 }} resizeMode="contain" />
               </View>
@@ -172,26 +178,19 @@ export default function LoginScreen() {
         {/* --- FORM ĐĂNG NHẬP --- */}
         <View style={styles.formContainer}>
           
-          {/* TABS CHUYỂN ĐỔI VAI TRÒ */}
           <View style={styles.roleTabs}>
-            <TouchableOpacity 
-              style={[styles.roleTab, role === 'patient' && styles.roleTabActive]} 
-              onPress={() => setRole('patient')}
-            >
+            <TouchableOpacity style={[styles.roleTab, role === 'patient' && styles.roleTabActive]} onPress={() => setRole('patient')}>
               <MaterialCommunityIcons name="account-heart" size={20} color={role === 'patient' ? colors.brandPrimary : colors.textLight} />
               <Text style={[styles.roleTabText, role === 'patient' && styles.roleTabTextActive]}>Bệnh Nhân</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[styles.roleTab, role === 'admin' && styles.roleTabActive]} 
-              onPress={() => setRole('admin')}
-            >
+            <TouchableOpacity style={[styles.roleTab, role === 'admin' && styles.roleTabActive]} onPress={() => setRole('admin')}>
               <MaterialCommunityIcons name="shield-account" size={20} color={role === 'admin' ? colors.brandPrimary : colors.textLight} />
               <Text style={[styles.roleTabText, role === 'admin' && styles.roleTabTextActive]}>Quản Trị</Text>
             </TouchableOpacity>
           </View>
 
-          {/* NỘI DUNG NHẬP LIỆU: BỆNH NHÂN */}
+          {/* BỆNH NHÂN */}
           {role === 'patient' && (
             <View style={styles.inputSection}>
               <Text style={styles.label}>Mã hồ sơ bệnh nhân:</Text>
@@ -206,7 +205,6 @@ export default function LoginScreen() {
                   onChangeText={setPatientId}
                   autoCapitalize="characters"
                 />
-                {/* 🔥 NÚT BẤM MỞ CAMERA QUÉT QR NẰM TRONG Ô NHẬP LIỆU 🔥 */}
                 <TouchableOpacity onPress={handleOpenScanner} style={styles.qrScanBtn}>
                   <MaterialCommunityIcons name="qrcode-scan" size={20} color={colors.white} />
                 </TouchableOpacity>
@@ -220,7 +218,7 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* NỘI DUNG NHẬP LIỆU: ADMIN */}
+          {/* ADMIN */}
           {role === 'admin' && (
             <View style={styles.inputSection}>
               <View style={styles.inputWrapper}>
@@ -255,7 +253,6 @@ export default function LoginScreen() {
 
         </View>
 
-        {/* --- FOOTER --- */}
         <Text style={styles.footerText}>Phiên bản 2.0 • Chuyên nghiệp & Tin cậy</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -284,10 +281,7 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
-  
-  // 🔥 Đổi nền sang Trắng để Logo Xanh Lá nổi bật 🔥
   logoCircle: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  
   brandMedi: { 
     fontSize: 36, 
     fontWeight: '600', 
@@ -317,24 +311,12 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   input: { flex: 1, paddingVertical: 14, fontSize: 16, color: colors.textDark, fontWeight: '600' },
   
-  // 🔥 STYLE CHO NÚT BẤM QUÉT QR 🔥
-  qrScanBtn: {
-    backgroundColor: colors.brandPrimary,
-    padding: 10,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 2
-  },
-
+  qrScanBtn: { backgroundColor: colors.brandPrimary, padding: 10, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   hintText: { fontSize: 12, color: colors.textLight, fontStyle: 'italic', marginTop: 12, lineHeight: 18, textAlign: 'center' },
-
   loginBtn: { borderRadius: 30, paddingVertical: 16, alignItems: 'center', marginTop: 25, elevation: 3 },
   loginBtnText: { color: colors.white, fontSize: 15, fontWeight: '900', letterSpacing: 1 },
-
   footerText: { position: 'absolute', bottom: 30, alignSelf: 'center', fontSize: 12, color: colors.textLight, fontWeight: '600' },
 
-  // 🔥 STYLE CHO MÀN HÌNH CAMERA 🔥
   scannerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   scannerBox: { width: 250, height: 250, borderWidth: 3, borderColor: '#14B8A6', backgroundColor: 'transparent', borderRadius: 20 },
   scannerText: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginTop: 20, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10, textAlign: 'center' },
