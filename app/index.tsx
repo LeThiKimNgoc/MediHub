@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Papa from 'papaparse';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const colors = {
@@ -26,44 +26,34 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isCheckingMemory, setIsCheckingMemory] = useState(true); // 🔥 Biến kiểm tra trí nhớ lúc mới mở App
 
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // 🔥 MÁY QUÉT PWA NÂNG CẤP (Bắt chính xác 100% mọi dòng iPhone) 🔥
-  const checkIsPWA = () => {
-    if (Platform.OS !== 'web') return true; 
-    
-    if (typeof window !== 'undefined') {
-      const matchMedia = window.matchMedia || function() { return { matches: false }; };
-      const isAndroidPWA = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
-      
-      // Sử dụng toán tử !! để ép kiểu, bắt mọi trường hợp của iOS
-      const isIOSPWA = ('standalone' in window.navigator) && !!(window.navigator as any).standalone;
-      
-      return isAndroidPWA || isIOSPWA;
-    }
-    return false;
-  };
+  // 🔥 KIỂM TRA BỘ NHỚ NGAY KHI MỞ APP 🔥
+  useEffect(() => {
+    const checkAutoLogin = async () => {
+      try {
+        const savedId = await AsyncStorage.getItem('patientId');
+        const savedName = await AsyncStorage.getItem('patientName');
+        
+        if (savedId && savedName) {
+          // Nếu đã từng đăng nhập, bay thẳng vào trong luôn!
+          router.replace({ pathname: '/patient-home', params: { id: savedId, name: savedName } });
+        } else {
+          // Nếu chưa, hiện form đăng nhập
+          setIsCheckingMemory(false);
+        }
+      } catch (error) {
+        setIsCheckingMemory(false);
+      }
+    };
+    checkAutoLogin();
+  }, []);
 
   // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN ---
   const handlePatientLogin = () => {
-    const isApp = checkIsPWA(); // Quét ngay lập tức khi bấm nút
-    const isIOS = Platform.OS === 'web' && /iPhone|iPad|iPod/.test(navigator.userAgent);
-
-    // 🔥 LỐI THOÁT HIỂM CHO iPHONE: Chỉ nhắc nhở, cho phép đi tiếp 🔥
-    if (Platform.OS === 'web' && !isApp) {
-      if (isIOS) {
-        // Trình duyệt Safari trên iPhone thường bị kẹt cache, ta dùng hàm confirm để hỏi ý kiến
-        const confirmLogin = window.confirm('⚠️ GỢI Ý TRẢI NGHIỆM:\n\nĐể mất thanh địa chỉ ở dưới đáy, sếp hãy Xóa App hiện tại -> Xóa lịch sử web -> "Thêm vào MH chính" lại nhé!\n\nSếp có muốn BỎ QUA cảnh báo và tiếp tục đăng nhập ngay bây giờ không?');
-        if (!confirmLogin) return; // Nếu bấm Hủy thì dừng lại
-      } else {
-        // Trên PC hoặc trình duyệt Android bình thường thì vẫn chặn đứng
-        window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
-        return;
-      }
-    }
-
     if (!patientId.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập hoặc quét Mã Bệnh Nhân của bạn.');
       return;
@@ -71,19 +61,23 @@ export default function LoginScreen() {
 
     setLoading(true);
     const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gidPatients = '0'; 
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidPatients}`;
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
 
     fetch(csvUrl)
       .then(res => res.text())
       .then(csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
-          complete: (results) => {
+          complete: async (results) => {
             const patient = results.data.find((p: any) => p.PatientID === patientId.trim().toUpperCase());
             setLoading(false);
             if (patient) {
               setPatientId(''); 
+              
+              // 🔥 LƯU VÀO BỘ NHỚ SÂU ĐỂ LẦN SAU KHÔNG CẦN NHẬP NỮA 🔥
+              await AsyncStorage.setItem('patientId', patient.PatientID);
+              await AsyncStorage.setItem('patientName', patient.Name);
+              
               router.replace({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
             } else {
               Alert.alert('Lỗi đăng nhập', 'Không tìm thấy Mã Bệnh Nhân này trên hệ thống.');
@@ -99,15 +93,6 @@ export default function LoginScreen() {
 
   // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN ---
   const handleAdminLogin = () => {
-    const isApp = checkIsPWA(); 
-
-    if (Platform.OS !== 'web' || isApp) {
-      const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web bình thường. Vui lòng sử dụng Máy tính (PC/Laptop) để làm việc!';
-      if (Platform.OS === 'web') window.alert(msg);
-      else Alert.alert('Không Hỗ Trợ', msg);
-      return;
-    }
-
     if (!username.trim() || !password.trim()) {
       window.alert('Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
       return;
@@ -125,11 +110,6 @@ export default function LoginScreen() {
   };
 
   const handleOpenScanner = async () => {
-    const isApp = checkIsPWA();
-    if (Platform.OS === 'web' && !isApp) {
-      window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng điện thoại (App).");
-      return;
-    }
     if (!permission?.granted) {
       const { status } = await requestPermission();
       if (status !== 'granted') {
@@ -144,6 +124,16 @@ export default function LoginScreen() {
     setShowScanner(false);
     setPatientId(data.trim().toUpperCase());
   };
+
+  // 🔥 MÀN HÌNH CHỜ TRONG LÚC LỤC TÌM TRÍ NHỚ 🔥
+  if (isCheckingMemory) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
+        <Text style={{ marginTop: 15, color: colors.brandPrimary, fontWeight: 'bold' }}>Đang tải dữ liệu hồ sơ...</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -166,7 +156,7 @@ export default function LoginScreen() {
             >
               <View style={styles.scannerOverlay}>
                 <View style={styles.scannerBox} />
-                <Text style={styles.scannerText}>Đưa mã QR trên toa thuốc vào khung hình để Đăng Nhập</Text>
+                <Text style={styles.scannerText}>Đưa mã QR trên toa thuốc vào khung hình</Text>
               </View>
             </CameraView>
           </View>
