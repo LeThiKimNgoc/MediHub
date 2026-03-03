@@ -7,7 +7,7 @@ import Papa from 'papaparse';
 // 🔥 IMPORT CAMERA ĐỂ QUÉT QR 🔥
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-// === BẢNG MÀU THIẾT KẾ ĐỒNG BỘ MỚI (XANH CỔ VỊT - SANG TRỌNG & HIỆN ĐẠI) ===
+// === BẢNG MÀU THIẾT KẾ ĐỒNG BỘ MỚI ===
 const colors = {
   bg: '#F8FAFC',
   brandPrimary: '#0F766E',   
@@ -32,8 +32,14 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (Cho phép mọi thiết bị) ---
+  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (CHỈ CHO PHÉP TRÊN APP) ---
   const handlePatientLogin = () => {
+    // 🔥 CHẶN NẾU LÀ WEB 🔥
+    if (Platform.OS === 'web') {
+      window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng (App) điện thoại. Vui lòng sử dụng App để đăng nhập và theo dõi lịch dùng thuốc!');
+      return;
+    }
+
     if (!patientId.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập hoặc quét Mã Bệnh Nhân của bạn.');
       return;
@@ -68,46 +74,36 @@ export default function LoginScreen() {
       });
   };
 
-  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (CHỈ CHO PHÉP MÁY TÍNH) ---
+  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (CHỈ CHO PHÉP TRÊN WEB) ---
   const handleAdminLogin = () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
+    // 🔥 CHẶN NẾU LÀ APP ĐIỆN THOẠI 🔥
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        '⚠️ KHÔNG HỖ TRỢ APP', 
+        'Giao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web. Vui lòng truy cập bằng trình duyệt (Chrome/Safari) trên máy tính hoặc điện thoại!'
+      );
       return;
     }
 
-    // 🔥 TRẠM KIỂM SOÁT AN NINH: XÁC ĐỊNH THIẾT BỊ 🔥
-    let isMobileDevice = Platform.OS !== 'web'; // Nếu là App iOS/Android thì 100% là điện thoại
-    if (Platform.OS === 'web') {
-      // Nếu là Web, kiểm tra xem có phải mở bằng trình duyệt điện thoại (Safari/Chrome Mobile) không
-      isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!username.trim() || !password.trim()) {
+      window.alert('Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
+      return;
     }
 
-    // NẾU LÀ ĐIỆN THOẠI -> CHẶN LẠI NGAY LẬP TỨC
-    if (isMobileDevice) {
-      const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chứa nhiều dữ liệu bảng biểu phức tạp. Vui lòng mở trang web này trên Máy tính (PC/Laptop) để đăng nhập và làm việc hiệu quả nhất!';
-      if (Platform.OS === 'web') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Không Hỗ Trợ Điện Thoại', msg);
-      }
-      return; // Cắt đứt luồng đăng nhập tại đây
-    }
-
-    // VƯỢT QUA KIỂM TRA (ĐANG DÙNG MÁY TÍNH) -> CHO PHÉP ĐĂNG NHẬP
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
       if (username === 'admin' && password === '123456') {
         router.push('/admin');
       } else {
-        Alert.alert('Lỗi đăng nhập', 'Tài khoản hoặc mật khẩu không chính xác!');
+        window.alert('Tài khoản hoặc mật khẩu không chính xác!');
       }
     }, 1000);
   };
 
   const handleOpenScanner = async () => {
     if (Platform.OS === 'web') {
-      alert("Chức năng Camera chỉ hoạt động trên thiết bị di động (Điện thoại/Tablet).");
+      window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng (App) điện thoại.");
       return;
     }
     if (!permission?.granted) {
