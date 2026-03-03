@@ -4,10 +4,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Papa from 'papaparse';
 
-// 🔥 IMPORT CAMERA ĐỂ QUÉT QR 🔥
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-// === BẢNG MÀU THIẾT KẾ ĐỒNG BỘ MỚI ===
 const colors = {
   bg: '#F8FAFC',
   brandPrimary: '#0F766E',   
@@ -22,6 +20,12 @@ const colors = {
   secondary: '#E0F2FE'
 };
 
+// 🔥 HÀM KIỂM TRA XEM CÓ PHẢI APP CÀI TỪ WEB (PWA) HAY KHÔNG 🔥
+const checkIsPWA = () => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
+  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+};
+
 export default function LoginScreen() {
   const [role, setRole] = useState('patient'); 
   const [patientId, setPatientId] = useState('');
@@ -32,11 +36,13 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (CHỈ CHO PHÉP TRÊN APP) ---
+  const isPWA = checkIsPWA(); // Khởi tạo biến kiểm tra
+
+  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (Cho App Native và App PWA) ---
   const handlePatientLogin = () => {
-    // 🔥 CHẶN NẾU LÀ WEB 🔥
-    if (Platform.OS === 'web') {
-      window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng (App) điện thoại. Vui lòng sử dụng App để đăng nhập và theo dõi lịch dùng thuốc!');
+    // Chỉ chặn nếu là Web bình thường (không phải PWA)
+    if (Platform.OS === 'web' && !isPWA) {
+      window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
       return;
     }
 
@@ -74,14 +80,13 @@ export default function LoginScreen() {
       });
   };
 
-  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (CHỈ CHO PHÉP TRÊN WEB) ---
+  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (Chỉ cho Web bình thường) ---
   const handleAdminLogin = () => {
-    // 🔥 CHẶN NẾU LÀ APP ĐIỆN THOẠI 🔥
-    if (Platform.OS !== 'web') {
-      Alert.alert(
-        '⚠️ KHÔNG HỖ TRỢ APP', 
-        'Giao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web. Vui lòng truy cập bằng trình duyệt (Chrome/Safari) trên máy tính hoặc điện thoại!'
-      );
+    // Chặn nếu là App Native hoặc là App PWA (vì PWA màn hình nhỏ)
+    if (Platform.OS !== 'web' || isPWA) {
+      const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web bình thường. Vui lòng sử dụng Máy tính (PC/Laptop) để làm việc!';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Không Hỗ Trợ', msg);
       return;
     }
 
@@ -102,8 +107,8 @@ export default function LoginScreen() {
   };
 
   const handleOpenScanner = async () => {
-    if (Platform.OS === 'web') {
-      window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng (App) điện thoại.");
+    if (Platform.OS === 'web' && !isPWA) {
+      window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng điện thoại (App).");
       return;
     }
     if (!permission?.granted) {
@@ -124,7 +129,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
-      {showScanner && Platform.OS !== 'web' && (
+      {showScanner && (
         <Modal visible={showScanner} animationType="slide" transparent={false}>
           <View style={{ flex: 1, backgroundColor: '#000' }}>
             <View style={{ padding: 20, paddingTop: 50, flexDirection: 'row', justifyContent: 'space-between', zIndex: 10 }}>
@@ -137,9 +142,7 @@ export default function LoginScreen() {
             <CameraView 
               style={{ flex: 1 }} 
               facing="back"
-              barcodeScannerSettings={{
-                barcodeTypes: ["qr", "ean13", "ean8", "code128", "code39"],
-              }}
+              barcodeScannerSettings={{ barcodeTypes: ["qr", "ean13", "ean8", "code128", "code39"] }}
               onBarcodeScanned={handleBarcodeScanned}
             >
               <View style={styles.scannerOverlay}>
@@ -151,10 +154,7 @@ export default function LoginScreen() {
         </Modal>
       )}
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={styles.container}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         
         <View style={styles.backgroundIcons}>
           <MaterialCommunityIcons name="pill" size={160} color="#E2E8F0" style={styles.iconPos1} />
@@ -267,35 +267,14 @@ const styles = StyleSheet.create({
   iconPos3: { position: 'absolute', top: '35%', right: '5%', opacity: 0.2 },
 
   headerContainer: { alignItems: 'center', marginBottom: 35 },
-  brandBox: {
-    backgroundColor: 'rgba(15, 118, 110, 0.1)', 
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(15, 118, 110, 0.2)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8
-  },
+  brandBox: { backgroundColor: 'rgba(15, 118, 110, 0.1)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(15, 118, 110, 0.2)', flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   logoCircle: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  brandMedi: { 
-    fontSize: 36, 
-    fontWeight: '600', 
-    color: colors.brandPrimary, 
-    marginLeft: 12, 
-    letterSpacing: 1, 
-    fontStyle: 'italic', 
-    textShadowColor: 'rgba(0, 0, 0, 0.1)', 
-    textShadowOffset: { width: 1, height: 1 }, 
-    textShadowRadius: 2, 
-  },
+  brandMedi: { fontSize: 36, fontWeight: '600', color: colors.brandPrimary, marginLeft: 12, letterSpacing: 1, fontStyle: 'italic', textShadowColor: 'rgba(0, 0, 0, 0.1)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
   brandHub: { fontWeight: '900', color: colors.textDark },
   slogan: { fontSize: 13, color: colors.textLight, fontWeight: '700', marginTop: 4, letterSpacing: 0.5 },
 
   formContainer: { backgroundColor: colors.white, borderRadius: 24, padding: 25, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' },
-  
   roleTabs: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 16, padding: 5, marginBottom: 25 },
   roleTab: { flex: 1, flexDirection: 'row', paddingVertical: 12, justifyContent: 'center', alignItems: 'center', borderRadius: 12, gap: 8 },
   roleTabActive: { backgroundColor: colors.white, elevation: 2 },
@@ -304,11 +283,9 @@ const styles = StyleSheet.create({
 
   inputSection: { paddingHorizontal: 5 },
   label: { fontSize: 14, fontWeight: '800', color: colors.textDark, marginBottom: 10 },
-  
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', paddingLeft: 15 },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, paddingVertical: 14, fontSize: 16, color: colors.textDark, fontWeight: '600' },
-  
   qrScanBtn: { backgroundColor: colors.brandPrimary, padding: 10, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
   hintText: { fontSize: 12, color: colors.textLight, fontStyle: 'italic', marginTop: 12, lineHeight: 18, textAlign: 'center' },
   loginBtn: { borderRadius: 30, paddingVertical: 16, alignItems: 'center', marginTop: 25, elevation: 3 },
