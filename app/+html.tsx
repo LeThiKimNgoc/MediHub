@@ -1,9 +1,6 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
-// 🔥 ĐÂY LÀ TÊN MIỀN VERCEL CỦA BẠN (Bác sĩ điền sẵn luôn cho lẹ) 🔥
-const DOMAIN = 'https://medi-hub-beige.vercel.app';
-
 export default function Root({ children }: PropsWithChildren) {
   return (
     <html lang="vi">
@@ -12,20 +9,17 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
-        {/* 🔥 BỘ GEN SEO ĐỂ CHIA SẺ ZALO / FACEBOOK 🔥 */}
-        <title>MediHub - Nền Tảng Y Tế Thông Minh</title>
-        <meta name="description" content="Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp. Đồng hành sức khỏe mỗi ngày." />
+        {/* 🔥 BỘ GEN SEO CHUẨN "NGÀNH DƯỢC" CHO ZALO / FACEBOOK 🔥 */}
+        <title>MediHub - Hệ Thống Quản Lý Dược Phẩm</title>
+        <meta name="description" content="Nền tảng quản lý danh mục D&C và theo dõi lịch dùng thuốc chuyên nghiệp." />
 
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={DOMAIN} />
-        <meta property="og:title" content="MediHub - Nền Tảng Y Tế Thông Minh" />
-        <meta property="og:description" content="Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp. Đồng hành sức khỏe mỗi ngày." />
+        <meta property="og:url" content="https://medi-hub-beige.vercel.app/" />
+        <meta property="og:title" content="MediHub - Quản Lý Dược Phẩm Thông Minh 💊" />
+        <meta property="og:description" content="Trợ lý đắc lực của Dược sĩ. Quản lý danh mục D&C và nhắc nhở bệnh nhân tuân thủ điều trị." />
         
-        {/* 🔥 ẢNH BÌA CHÍNH CHỦ (Thay tên file ảnh của bạn vào đây nếu khác) 🔥 */}
-        {/* Ví dụ bạn đặt tên là 'anh-bia-medihub.jpg' thì dòng dưới sẽ là: `${DOMAIN}/anh-bia-medihub.jpg` */}
-        <meta property="og:image" content={`${DOMAIN}/anh-bia-medihub.jpg`} />
-
-        {/* Thêm thẻ này để Zalo ưu tiên hiển thị ảnh to */}
+        {/* 🔥 BANNER CHUẨN DƯỢC SĨ (Hình ảnh vỉ thuốc sạch sẽ, chuyên nghiệp, siêu nhẹ) 🔥 */}
+        <meta property="og:image" content="https://images.unsplash.com/photo-1585435557343-3b092031a831?q=80&w=1200&h=630&auto=format&fit=crop" />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
 
