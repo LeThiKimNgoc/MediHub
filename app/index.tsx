@@ -49,11 +49,19 @@ export default function LoginScreen() {
   // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN ---
   const handlePatientLogin = () => {
     const isApp = checkIsPWA(); // Quét ngay lập tức khi bấm nút
+    const isIOS = Platform.OS === 'web' && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-    // 🔥 Chặn nếu ĐANG LÀ WEB BÌNH THƯỜNG (KHÔNG PHẢI APP) 🔥
+    // 🔥 LỐI THOÁT HIỂM CHO iPHONE: Chỉ nhắc nhở, cho phép đi tiếp 🔥
     if (Platform.OS === 'web' && !isApp) {
-      window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
-      return;
+      if (isIOS) {
+        // Trình duyệt Safari trên iPhone thường bị kẹt cache, ta dùng hàm confirm để hỏi ý kiến
+        const confirmLogin = window.confirm('⚠️ GỢI Ý TRẢI NGHIỆM:\n\nĐể mất thanh địa chỉ ở dưới đáy, sếp hãy Xóa App hiện tại -> Xóa lịch sử web -> "Thêm vào MH chính" lại nhé!\n\nSếp có muốn BỎ QUA cảnh báo và tiếp tục đăng nhập ngay bây giờ không?');
+        if (!confirmLogin) return; // Nếu bấm Hủy thì dừng lại
+      } else {
+        // Trên PC hoặc trình duyệt Android bình thường thì vẫn chặn đứng
+        window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
+        return;
+      }
     }
 
     if (!patientId.trim()) {

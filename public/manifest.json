@@ -1,9 +1,0 @@
-{
-  "name": "MediHub - Quản Lý Dược Phẩm",
-  "short_name": "MediHub",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#F8FAFC",
-  "theme_color": "#0F766E",
-  "scope": "/"
-}
