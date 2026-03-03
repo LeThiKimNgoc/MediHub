@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Papa from 'papaparse';
@@ -154,12 +155,13 @@ export default function LoginScreen() {
           <MaterialCommunityIcons name="medical-bag" size={120} color="#E2E8F0" style={styles.iconPos3} />
         </View>
 
-        {/* --- LOGO KÍNH MỜ --- */}
+        {/* --- LOGO KÍNH MỜ ĐÃ ĐƯỢC THAY BẰNG LOGO PHÒNG KHÁM CHÍNH CHỦ --- */}
         <View style={styles.headerContainer}>
           <View style={styles.brandBox}>
             <View style={styles.brandRow}>
+              {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
               <View style={styles.logoCircle}>
-                <MaterialCommunityIcons name="pill" size={32} color={colors.white} />
+                <Image source={require('../assets/images/favicon.png')} style={{ width: 34, height: 34 }} resizeMode="contain" />
               </View>
               <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
             </View>
@@ -282,7 +284,10 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
-  logoCircle: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.brandPrimary, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  
+  // 🔥 Đổi nền sang Trắng để Logo Xanh Lá nổi bật 🔥
+  logoCircle: { width: 48, height: 48, borderRadius: 14, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  
   brandMedi: { 
     fontSize: 36, 
     fontWeight: '600', 
