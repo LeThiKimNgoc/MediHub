@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -30,21 +30,21 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // 🔥 BỘ NHẬN DIỆN APP CHÍNH XÁC (Sử dụng Nhịp tim useEffect để đợi iOS nạp xong) 🔥
-  const [isApp, setIsApp] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      setIsApp(true); // Nếu tải thẳng App Android (.apk) hoặc Expo Go thì chắc chắn là App
-    } else if (typeof window !== 'undefined') {
-      // Đợi màn hình load xong mới quét kiểm tra PWA
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-      setIsApp(isStandalone);
+  // 🔥 MÁY QUÉT REAL-TIME (Quét ngay lúc bấm nút để không bị lỗi trí nhớ cũ) 🔥
+  const checkIsPWA = () => {
+    if (Platform.OS !== 'web') return true; // Nếu dùng file .apk hoặc Expo Go thì chắc chắn là App
+    if (typeof window !== 'undefined') {
+      const isAndroidPWA = window.matchMedia('(display-mode: standalone)').matches;
+      const isIOSPWA = (window.navigator as any).standalone === true;
+      return isAndroidPWA || isIOSPWA;
     }
-  }, []);
+    return false;
+  };
 
   // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN ---
   const handlePatientLogin = () => {
+    const isApp = checkIsPWA(); // Quét ngay lập tức
+
     // 🔥 Nếu KHÔNG PHẢI là App -> Chặn lại 🔥
     if (Platform.OS === 'web' && !isApp) {
       window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
@@ -71,7 +71,6 @@ export default function LoginScreen() {
             setLoading(false);
             if (patient) {
               setPatientId(''); 
-              // 🔥 SỬ DỤNG ROUTER.REPLACE ĐỂ KHÔNG BỊ VĂNG SAFARI 🔥
               router.replace({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
             } else {
               Alert.alert('Lỗi đăng nhập', 'Không tìm thấy Mã Bệnh Nhân này trên hệ thống.');
@@ -87,7 +86,9 @@ export default function LoginScreen() {
 
   // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN ---
   const handleAdminLogin = () => {
-    // 🔥 Chặn nếu là App Native HOẶC là App PWA (vì Admin cần màn hình to) 🔥
+    const isApp = checkIsPWA(); // Quét ngay lập tức
+
+    // 🔥 Chặn nếu là App Native HOẶC là App PWA (Admin phải xài web trên máy tính) 🔥
     if (Platform.OS !== 'web' || isApp) {
       const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web bình thường. Vui lòng sử dụng Máy tính (PC/Laptop) để làm việc!';
       if (Platform.OS === 'web') window.alert(msg);
@@ -104,7 +105,6 @@ export default function LoginScreen() {
     setTimeout(() => {
       setLoading(false);
       if (username === 'admin' && password === '123456') {
-        // 🔥 SỬ DỤNG ROUTER.REPLACE 🔥
         router.replace('/admin');
       } else {
         window.alert('Tài khoản hoặc mật khẩu không chính xác!');
@@ -113,6 +113,7 @@ export default function LoginScreen() {
   };
 
   const handleOpenScanner = async () => {
+    const isApp = checkIsPWA();
     if (Platform.OS === 'web' && !isApp) {
       window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng điện thoại (App).");
       return;
