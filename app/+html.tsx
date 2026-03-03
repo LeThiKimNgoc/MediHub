@@ -11,16 +11,13 @@ export default function Root({ children }: PropsWithChildren) {
         {/* 🔥 1. CHỐNG PHÓNG TO THU NHỎ KHI BẤM VÀO Ô NHẬP LIỆU (Giống hệt App thật) 🔥 */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 
-        {/* 🔥 2. GIẤY PHÉP BẮT BUỘC ĐỂ iPHONE CÔNG NHẬN LÀ APP (PWA) 🔥 */}
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/assets/images/favicon.png" />
+        {/* ❌ ĐÃ XÓA BỎ PHẦN LINK MANIFEST LỖI Ở ĐÂY ❌ */}
 
-        {/* 🔥 3. BỘ GEN ĐẶC TRỊ ÉP TRÀN VIỀN & GIẤU THANH TRÌNH DUYỆT 🔥 */}
+        {/* 🔥 2. BỘ GEN ĐẶC TRỊ ÉP TRÀN VIỀN & GIẤU THANH TRÌNH DUYỆT 🔥 */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="MediHub" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#14B8A6" />
 
         {/* 🔥 BỘ GEN SEO ZALO / FACEBOOK 🔥 */}
         <title>MediHub - Hệ Thống Quản Lý Dược Phẩm</title>

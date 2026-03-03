@@ -23,7 +23,14 @@
     },
     "web": {
       "output": "single",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "shortName": "MediHub",
+      "name": "MediHub - Quản Lý Dược Phẩm",
+      "themeColor": "#0F766E",
+      "backgroundColor": "#F8FAFC",
+      "display": "standalone",
+      "scope": "/",
+      "startUrl": "/"
     },
     "plugins": [
       "expo-router",
