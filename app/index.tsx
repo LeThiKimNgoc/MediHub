@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-// 🔥 Bổ sung thêm công cụ Head từ expo-router 🔥
-import { router, Head } from 'expo-router';
+import { router } from 'expo-router';
 import Papa from 'papaparse';
 
 // 🔥 IMPORT CAMERA ĐỂ QUÉT QR 🔥
@@ -30,11 +29,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // 🔥 STATE QUẢN LÝ CAMERA 🔥
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (LOGIC GỐC) ---
   const handlePatientLogin = () => {
     if (!patientId.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập hoặc quét Mã Bệnh Nhân của bạn.');
@@ -70,7 +67,6 @@ export default function LoginScreen() {
       });
   };
 
-  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (LOGIC GỐC) ---
   const handleAdminLogin = () => {
     if (!username.trim() || !password.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
@@ -111,19 +107,6 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
-      {/* 🔥 THÊM ĐOẠN HEAD NÀY ĐỂ TẠO GIAO DIỆN CHIA SẺ ZALO/FB XỊN XÒ 🔥 */}
-      <Head>
-        <title>MediHub - Nền Tảng Y Tế Thông Minh</title>
-        <meta name="description" content="Đồng hành sức khỏe mỗi ngày. Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp." />
-        <meta property="og:title" content="MediHub - Nền Tảng Y Tế Thông Minh" />
-        <meta property="og:description" content="Đồng hành sức khỏe mỗi ngày. Hệ thống theo dõi hồ sơ y tế và lịch dùng thuốc chuyên nghiệp." />
-        {/* Ảnh bìa to đùng khi chia sẻ link (Có thể thay link ảnh khác nếu muốn) */}
-        <meta property="og:image" content="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop" />
-        <meta property="og:url" content="https://medi-hub-beige.vercel.app" />
-        <meta property="og:type" content="website" />
-      </Head>
-
-      {/* 🔥 GIAO DIỆN CAMERA QUÉT QR 🔥 */}
       {showScanner && Platform.OS !== 'web' && (
         <Modal visible={showScanner} animationType="slide" transparent={false}>
           <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -156,7 +139,6 @@ export default function LoginScreen() {
         style={styles.container}
       >
         
-        {/* --- WATERMARK BACKGROUND --- */}
         <View style={styles.backgroundIcons}>
           <MaterialCommunityIcons name="pill" size={160} color="#E2E8F0" style={styles.iconPos1} />
           <MaterialCommunityIcons name="heart-pulse" size={180} color="#E2E8F0" style={styles.iconPos2} />
@@ -175,7 +157,6 @@ export default function LoginScreen() {
           <Text style={styles.slogan}>Đồng Hành Sức Khỏe Mỗi Ngày</Text>
         </View>
 
-        {/* --- FORM ĐĂNG NHẬP --- */}
         <View style={styles.formContainer}>
           
           <View style={styles.roleTabs}>
@@ -190,7 +171,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* BỆNH NHÂN */}
           {role === 'patient' && (
             <View style={styles.inputSection}>
               <Text style={styles.label}>Mã hồ sơ bệnh nhân:</Text>
@@ -218,7 +198,6 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* ADMIN */}
           {role === 'admin' && (
             <View style={styles.inputSection}>
               <View style={styles.inputWrapper}>
