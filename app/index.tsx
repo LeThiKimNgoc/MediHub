@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, KeyboardAvoidingView, Platform, Alert, Modal, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -20,12 +20,6 @@ const colors = {
   secondary: '#E0F2FE'
 };
 
-// 🔥 HÀM KIỂM TRA XEM CÓ PHẢI APP CÀI TỪ WEB (PWA) HAY KHÔNG 🔥
-const checkIsPWA = () => {
-  if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
-  return window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-};
-
 export default function LoginScreen() {
   const [role, setRole] = useState('patient'); 
   const [patientId, setPatientId] = useState('');
@@ -36,12 +30,23 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  const isPWA = checkIsPWA(); // Khởi tạo biến kiểm tra
+  // 🔥 BỘ NHẬN DIỆN APP CHÍNH XÁC (Sử dụng Nhịp tim useEffect để đợi iOS nạp xong) 🔥
+  const [isApp, setIsApp] = useState(false);
 
-  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN (Cho App Native và App PWA) ---
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      setIsApp(true); // Nếu tải thẳng App Android (.apk) hoặc Expo Go thì chắc chắn là App
+    } else if (typeof window !== 'undefined') {
+      // Đợi màn hình load xong mới quét kiểm tra PWA
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+      setIsApp(isStandalone);
+    }
+  }, []);
+
+  // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN ---
   const handlePatientLogin = () => {
-    // Chỉ chặn nếu là Web bình thường (không phải PWA)
-    if (Platform.OS === 'web' && !isPWA) {
+    // 🔥 Nếu KHÔNG PHẢI là App -> Chặn lại 🔥
+    if (Platform.OS === 'web' && !isApp) {
       window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
       return;
     }
@@ -66,8 +71,8 @@ export default function LoginScreen() {
             setLoading(false);
             if (patient) {
               setPatientId(''); 
-              Alert.alert('Thành công', `Xin chào, ${patient.Name}!`);
-              router.push({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
+              // 🔥 SỬ DỤNG ROUTER.REPLACE ĐỂ KHÔNG BỊ VĂNG SAFARI 🔥
+              router.replace({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
             } else {
               Alert.alert('Lỗi đăng nhập', 'Không tìm thấy Mã Bệnh Nhân này trên hệ thống.');
             }
@@ -80,10 +85,10 @@ export default function LoginScreen() {
       });
   };
 
-  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN (Chỉ cho Web bình thường) ---
+  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN ---
   const handleAdminLogin = () => {
-    // Chặn nếu là App Native hoặc là App PWA (vì PWA màn hình nhỏ)
-    if (Platform.OS !== 'web' || isPWA) {
+    // 🔥 Chặn nếu là App Native HOẶC là App PWA (vì Admin cần màn hình to) 🔥
+    if (Platform.OS !== 'web' || isApp) {
       const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web bình thường. Vui lòng sử dụng Máy tính (PC/Laptop) để làm việc!';
       if (Platform.OS === 'web') window.alert(msg);
       else Alert.alert('Không Hỗ Trợ', msg);
@@ -99,7 +104,8 @@ export default function LoginScreen() {
     setTimeout(() => {
       setLoading(false);
       if (username === 'admin' && password === '123456') {
-        router.push('/admin');
+        // 🔥 SỬ DỤNG ROUTER.REPLACE 🔥
+        router.replace('/admin');
       } else {
         window.alert('Tài khoản hoặc mật khẩu không chính xác!');
       }
@@ -107,7 +113,7 @@ export default function LoginScreen() {
   };
 
   const handleOpenScanner = async () => {
-    if (Platform.OS === 'web' && !isPWA) {
+    if (Platform.OS === 'web' && !isApp) {
       window.alert("Chức năng Camera chỉ hoạt động trên Ứng dụng điện thoại (App).");
       return;
     }
@@ -188,11 +194,9 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* BỆNH NHÂN */}
           {role === 'patient' && (
             <View style={styles.inputSection}>
               <Text style={styles.label}>Mã hồ sơ bệnh nhân:</Text>
-              
               <View style={[styles.inputWrapper, { borderColor: colors.brandSecondary, borderWidth: 2, paddingRight: 5 }]}>
                 <MaterialCommunityIcons name="card-account-details-outline" size={24} color={colors.brandPrimary} style={styles.inputIcon} />
                 <TextInput 
@@ -207,42 +211,23 @@ export default function LoginScreen() {
                   <MaterialCommunityIcons name="qrcode-scan" size={20} color={colors.white} />
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.hintText}>*Nhập tay mã in trên sổ khám hoặc bấm nút quét QR.</Text>
-
               <TouchableOpacity style={[styles.loginBtn, {backgroundColor: colors.actionTeal}]} onPress={handlePatientLogin} disabled={loading}>
                 {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.loginBtnText}>ĐĂNG NHẬP</Text>}
               </TouchableOpacity>
             </View>
           )}
 
-          {/* ADMIN */}
           {role === 'admin' && (
             <View style={styles.inputSection}>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons name="account" size={24} color={colors.textLight} style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Tên đăng nhập" 
-                  placeholderTextColor={colors.textLight}
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                />
+                <TextInput style={styles.input} placeholder="Tên đăng nhập" placeholderTextColor={colors.textLight} value={username} onChangeText={setUsername} autoCapitalize="none" />
               </View>
-
               <View style={[styles.inputWrapper, {marginTop: 15}]}>
                 <MaterialCommunityIcons name="lock" size={24} color={colors.textLight} style={styles.inputIcon} />
-                <TextInput 
-                  style={styles.input} 
-                  placeholder="Mật khẩu" 
-                  placeholderTextColor={colors.textLight}
-                  secureTextEntry={true}
-                  value={password}
-                  onChangeText={setPassword}
-                />
+                <TextInput style={styles.input} placeholder="Mật khẩu" placeholderTextColor={colors.textLight} secureTextEntry={true} value={password} onChangeText={setPassword} />
               </View>
-
               <TouchableOpacity style={[styles.loginBtn, {backgroundColor: colors.actionBlack}]} onPress={handleAdminLogin} disabled={loading}>
                 {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.loginBtnText}>ĐĂNG NHẬP</Text>}
               </TouchableOpacity>
@@ -250,7 +235,6 @@ export default function LoginScreen() {
           )}
 
         </View>
-
         <Text style={styles.footerText}>Phiên bản 2.0 • Chuyên nghiệp & Tin cậy</Text>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -260,12 +244,10 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
-  
   backgroundIcons: { ...StyleSheet.absoluteFillObject, zIndex: -1, overflow: 'hidden' },
   iconPos1: { position: 'absolute', top: -40, left: -50, opacity: 0.4, transform: [{rotate: '15deg'}] },
   iconPos2: { position: 'absolute', bottom: 10, right: -60, opacity: 0.4, transform: [{rotate: '-20deg'}] },
   iconPos3: { position: 'absolute', top: '35%', right: '5%', opacity: 0.2 },
-
   headerContainer: { alignItems: 'center', marginBottom: 35 },
   brandBox: { backgroundColor: 'rgba(15, 118, 110, 0.1)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(15, 118, 110, 0.2)', flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
@@ -273,14 +255,12 @@ const styles = StyleSheet.create({
   brandMedi: { fontSize: 36, fontWeight: '600', color: colors.brandPrimary, marginLeft: 12, letterSpacing: 1, fontStyle: 'italic', textShadowColor: 'rgba(0, 0, 0, 0.1)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
   brandHub: { fontWeight: '900', color: colors.textDark },
   slogan: { fontSize: 13, color: colors.textLight, fontWeight: '700', marginTop: 4, letterSpacing: 0.5 },
-
   formContainer: { backgroundColor: colors.white, borderRadius: 24, padding: 25, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: '#F1F5F9' },
   roleTabs: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 16, padding: 5, marginBottom: 25 },
   roleTab: { flex: 1, flexDirection: 'row', paddingVertical: 12, justifyContent: 'center', alignItems: 'center', borderRadius: 12, gap: 8 },
   roleTabActive: { backgroundColor: colors.white, elevation: 2 },
   roleTabText: { fontSize: 14, fontWeight: '700', color: colors.textLight },
   roleTabTextActive: { color: colors.brandPrimary },
-
   inputSection: { paddingHorizontal: 5 },
   label: { fontSize: 14, fontWeight: '800', color: colors.textDark, marginBottom: 10 },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bg, borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', paddingLeft: 15 },
@@ -291,7 +271,6 @@ const styles = StyleSheet.create({
   loginBtn: { borderRadius: 30, paddingVertical: 16, alignItems: 'center', marginTop: 25, elevation: 3 },
   loginBtnText: { color: colors.white, fontSize: 15, fontWeight: '900', letterSpacing: 1 },
   footerText: { position: 'absolute', bottom: 30, alignSelf: 'center', fontSize: 12, color: colors.textLight, fontWeight: '600' },
-
   scannerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   scannerBox: { width: 250, height: 250, borderWidth: 3, borderColor: '#14B8A6', backgroundColor: 'transparent', borderRadius: 20 },
   scannerText: { color: '#fff', fontSize: 14, fontWeight: 'bold', marginTop: 20, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10, textAlign: 'center' },
