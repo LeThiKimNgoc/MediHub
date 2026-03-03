@@ -30,12 +30,17 @@ export default function LoginScreen() {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // 🔥 MÁY QUÉT REAL-TIME (Quét ngay lúc bấm nút để không bị lỗi trí nhớ cũ) 🔥
+  // 🔥 MÁY QUÉT PWA NÂNG CẤP (Bắt chính xác 100% mọi dòng iPhone) 🔥
   const checkIsPWA = () => {
-    if (Platform.OS !== 'web') return true; // Nếu dùng file .apk hoặc Expo Go thì chắc chắn là App
+    if (Platform.OS !== 'web') return true; 
+    
     if (typeof window !== 'undefined') {
-      const isAndroidPWA = window.matchMedia('(display-mode: standalone)').matches;
-      const isIOSPWA = (window.navigator as any).standalone === true;
+      const matchMedia = window.matchMedia || function() { return { matches: false }; };
+      const isAndroidPWA = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+      
+      // Sử dụng toán tử !! để ép kiểu, bắt mọi trường hợp của iOS
+      const isIOSPWA = ('standalone' in window.navigator) && !!(window.navigator as any).standalone;
+      
       return isAndroidPWA || isIOSPWA;
     }
     return false;
@@ -43,9 +48,9 @@ export default function LoginScreen() {
 
   // --- 1. XỬ LÝ ĐĂNG NHẬP BỆNH NHÂN ---
   const handlePatientLogin = () => {
-    const isApp = checkIsPWA(); // Quét ngay lập tức
+    const isApp = checkIsPWA(); // Quét ngay lập tức khi bấm nút
 
-    // 🔥 Nếu KHÔNG PHẢI là App -> Chặn lại 🔥
+    // 🔥 Chặn nếu ĐANG LÀ WEB BÌNH THƯỜNG (KHÔNG PHẢI APP) 🔥
     if (Platform.OS === 'web' && !isApp) {
       window.alert('⚠️ THÔNG BÁO:\nGiao diện Bệnh nhân chỉ hoạt động trên Ứng dụng điện thoại. Vui lòng chọn "Thêm vào màn hình chính" để cài đặt App!');
       return;
@@ -86,9 +91,8 @@ export default function LoginScreen() {
 
   // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN ---
   const handleAdminLogin = () => {
-    const isApp = checkIsPWA(); // Quét ngay lập tức
+    const isApp = checkIsPWA(); 
 
-    // 🔥 Chặn nếu là App Native HOẶC là App PWA (Admin phải xài web trên máy tính) 🔥
     if (Platform.OS !== 'web' || isApp) {
       const msg = '⚠️ BẢO MẬT & TRẢI NGHIỆM:\nGiao diện Quản trị viên (Admin) chỉ hoạt động trên nền tảng Web bình thường. Vui lòng sử dụng Máy tính (PC/Laptop) để làm việc!';
       if (Platform.OS === 'web') window.alert(msg);
