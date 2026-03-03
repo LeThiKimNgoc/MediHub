@@ -48,7 +48,6 @@ export default function PatientHomeScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
 
-  // 🔥 STATE CHO MENU HOTLINE & GÓP Ý 🔥
   const [isSosModalVisible, setSosModalVisible] = useState(false);
   const [isFeedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
@@ -153,18 +152,28 @@ export default function PatientHomeScreen() {
     }
   };
 
-  const fetchProfileData = () => {
-    setLoadingProfile(true);
+  // 🔥 LEVEL 1: OFFLINE-FIRST CHO HỒ SƠ BỆNH NHÂN 🔥
+  const fetchProfileData = async () => {
+    const cachedProfile = await AsyncStorage.getItem(`@cached_profile_${patientId}`);
+    if (cachedProfile) {
+      setProfileData(JSON.parse(cachedProfile)); // Load ngay lập tức từ bộ nhớ
+    } else {
+      setLoadingProfile(true);
+    }
+
     const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' })
       .then(res => res.text())
-      .then(csvText => {
+      .then(async csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
-          complete: (results) => {
+          complete: async (results) => {
             const patient = results.data.find((p: any) => p.PatientID === patientId);
-            if (patient) setProfileData(patient);
+            if (patient) {
+              setProfileData(patient);
+              await AsyncStorage.setItem(`@cached_profile_${patientId}`, JSON.stringify(patient)); // Cập nhật bộ nhớ đệm
+            }
             setLoadingProfile(false);
           }
         });
@@ -172,8 +181,18 @@ export default function PatientHomeScreen() {
       .catch(() => setLoadingProfile(false));
   };
 
+  // 🔥 LEVEL 1: OFFLINE-FIRST CHO DANH SÁCH THUỐC 🔥
   const fetchMedications = async (isRefreshing = false) => {
-    if (!isRefreshing) setLoading(true); 
+    if (!isRefreshing) {
+      const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
+      if (cachedMeds) {
+        setMedications(JSON.parse(cachedMeds));
+        setLoading(false); // Đã có bộ nhớ đệm thì tắt Loading quay quay ngay
+      } else {
+        setLoading(true);
+      }
+    }
+
     const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=1875494973&t=${new Date().getTime()}`;
 
@@ -185,16 +204,31 @@ export default function PatientHomeScreen() {
           complete: async (results) => {
             let myMeds = results.data.filter((item: any) => item.PatientsID === patientId);
             myMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
+            
             setMedications(myMeds);
+            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(myMeds)); // Cập nhật bộ nhớ đệm
+            
             setLoading(false); setRefreshing(false); 
             scheduleMedicationReminders(myMeds);
           }
         });
-      }).catch(() => { setLoading(false); setRefreshing(false); });
+      }).catch(() => { 
+        setLoading(false); setRefreshing(false); 
+        // Nếu rớt mạng, không làm sập App, bệnh nhân vẫn xài bộ đệm cũ
+      });
   };
 
+  // 🔥 LEVEL 1: OFFLINE-FIRST CHO LỊCH SỬ NHẬT KÝ 🔥
   const fetchHistoryLogs = async (background = false) => {
-    if (!background) setLoadingHistory(true);
+    if (!background) {
+      const cachedHistory = await AsyncStorage.getItem(`@cached_history_${patientId}`);
+      if (cachedHistory) {
+        setHistoryLogs(JSON.parse(cachedHistory));
+      } else {
+        setLoadingHistory(true);
+      }
+    }
+
     const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=1617086808&t=${new Date().getTime()}`;
 
@@ -206,6 +240,7 @@ export default function PatientHomeScreen() {
           complete: async (results) => {
             let myLogs = results.data.filter((item: any) => item.PatientsID === patientId);
             setHistoryLogs(myLogs);
+            await AsyncStorage.setItem(`@cached_history_${patientId}`, JSON.stringify(myLogs)); // Cập nhật bộ đệm
             if (!background) setLoadingHistory(false);
           }
         });
@@ -281,10 +316,9 @@ export default function PatientHomeScreen() {
           fetchHistoryLogs(true); 
           setTimeout(() => setToastVisible(false), 2500);
       } else { Alert.alert('Lỗi Server', result.message); }
-    } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ.'); } finally { setIsLogging(false); }
+    } catch (error) { Alert.alert('Lỗi mạng', 'Kết nối yếu. Hãy kiểm tra lại Wifi/4G để báo cáo.'); } finally { setIsLogging(false); }
   };
 
-  // 🔥 XỬ LÝ GỬI GÓP Ý VĂN BẢN (Dùng chung Sheet Log) 🔥
   const submitFeedback = async () => {
     if (!feedbackText.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập nội dung góp ý.');
@@ -292,7 +326,6 @@ export default function PatientHomeScreen() {
     }
     setIsSubmittingFeedback(true);
     
-    // Khéo léo tận dụng Sheet Log hiện tại: MedicineName để trống, Action ghi "Góp ý", Status ghi nội dung góp ý
     const feedbackPayload = { 
       action: 'add', 
       sheetName: 'Log', 
@@ -318,7 +351,7 @@ export default function PatientHomeScreen() {
         Alert.alert('Lỗi Server', result.message);
       }
     } catch (error) {
-      Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ để gửi góp ý.');
+      Alert.alert('Lỗi mạng', 'Kết nối yếu. Vui lòng kiểm tra Wifi/4G để gửi góp ý.');
     } finally {
       setIsSubmittingFeedback(false);
     }
@@ -326,13 +359,24 @@ export default function PatientHomeScreen() {
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
-      if (window.confirm('Bạn có muốn thoát tài khoản?')) router.replace('/');
+      if (window.confirm('Bạn có muốn thoát tài khoản?')) {
+        // Xóa sạch trí nhớ khi đăng xuất
+        AsyncStorage.removeItem('patientId');
+        AsyncStorage.removeItem('patientName');
+        router.replace('/');
+      }
     } else {
-      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [{ text: 'Hủy', style: 'cancel' }, { text: 'Thoát', onPress: () => router.replace('/') }]);
+      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
+        { text: 'Hủy', style: 'cancel' }, 
+        { text: 'Thoát', onPress: () => {
+          AsyncStorage.removeItem('patientId');
+          AsyncStorage.removeItem('patientName');
+          router.replace('/');
+        }}
+      ]);
     }
   };
 
-  // 🔥 MỞ MENU HOTLINE THAY VÌ HIỆN ALERT MẶC ĐỊNH 🔥
   const handleSOS = () => {
     setSosModalVisible(true);
   };
@@ -493,7 +537,6 @@ export default function PatientHomeScreen() {
                   let bgColor = item.Status === 'Đã sử dụng' ? '#E8F5E9' : (item.Status === 'Bỏ lỡ' ? '#FFEBEE' : '#FFF3E0');
                   let iconName: any = item.Status === 'Đã sử dụng' ? 'check-circle' : (item.Status === 'Bỏ lỡ' ? 'close-circle' : 'alarm-snooze');
 
-                  // Đổi màu nếu là tin nhắn góp ý
                   if (item.Action === 'Góp ý') {
                     statusColor = '#9C27B0';
                     bgColor = '#F3E5F5';
@@ -683,7 +726,6 @@ const styles = StyleSheet.create({
   emptyContainer: { padding: 50, alignItems: 'center' },
   emptyText: { color: colors.textLight, textAlign: 'center', fontSize: 16, marginTop: 10 },
 
-  // 🔥 STYLE MỚI CHO HOTLINE & PHẢN HỒI 🔥
   sosMenuBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, elevation: 1 },
   sosMenuText: { fontSize: 16, fontWeight: 'bold', marginLeft: 15 },
   feedbackInput: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, fontSize: 16, color: colors.textDark, minHeight: 120, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 }
