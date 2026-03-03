@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity, Modal, Alert, Platform, RefreshControl, Linking } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, TouchableOpacity, Modal, Alert, Platform, RefreshControl, Linking, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router'; 
@@ -206,10 +207,9 @@ export default function PatientHomeScreen() {
       }).catch(() => { if(!background) setLoadingHistory(false); });
   };
 
-  // Nạp 2 dữ liệu ban đầu
   useFocusEffect(useCallback(() => { 
     fetchMedications(); 
-    fetchHistoryLogs(true); // Load ngầm lịch sử để chuẩn bị số liệu tính toán
+    fetchHistoryLogs(true); 
   }, [patientId]));
 
   const onRefresh = useCallback(() => {
@@ -223,39 +223,32 @@ export default function PatientHomeScreen() {
     if (!med.Quantity || historyLogs.length === 0) return med.Quantity;
     
     const qtyStr = med.Quantity.toString().toLowerCase();
-    // 1. Ngoại lệ: Nếu là chất lỏng/dùng ngoài thì không trừ số học
     if (qtyStr.includes('lọ') || qtyStr.includes('tuýp') || qtyStr.includes('chai') || qtyStr.includes('ống')) {
        return med.Quantity; 
     }
 
-    // 2. Lấy con số tổng từ chuỗi (Vd: "30 viên" -> 30)
     const totalMatch = med.Quantity.toString().match(/\d+(\.\d+)?/); 
     if (!totalMatch) return med.Quantity;
     const totalQty = parseFloat(totalMatch[0]);
 
-    // 3. Lấy con số Liều dùng (Vd: "2 viên" -> 2)
     const doseStr = med.Dose ? med.Dose.toString().replace(/,/g, '.') : '1';
     const doseMatch = doseStr.match(/\d+(\.\d+)?/);
     const dosePerTime = doseMatch ? parseFloat(doseMatch[0]) : 1;
 
-    // 4. Đếm số lần đã uống thành công trong Lịch Sử
     const takenLogs = historyLogs.filter(log => log.MedicineName === med.MedicineName && log.Status === 'Đã sử dụng');
     const totalConsumed = takenLogs.length * dosePerTime;
 
-    // 5. Trừ đi và ghép lại với đơn vị
     let remaining = totalQty - totalConsumed;
     if (remaining < 0) remaining = 0;
     
-    // Trích xuất chữ cái để giữ lại (Vd: "viên")
     const unitMatch = med.Quantity.toString().replace(/[\d.,]/g, '').trim();
     return `${remaining} ${unitMatch}`.trim();
   };
 
-  // 🔥 Cập nhật thuật toán cho Bảng cảnh báo (Sắp hết thuốc <= 5)
   const lowMeds = medications.filter(med => {
     if (!med.Quantity) return false;
     const qtyStr = med.Quantity.toString().toLowerCase();
-    if (qtyStr.includes('lọ') || qtyStr.includes('tuýp')) return false; // Bỏ qua đồ lỏng
+    if (qtyStr.includes('lọ') || qtyStr.includes('tuýp')) return false; 
 
     const remainingText = calculateRemaining(med);
     const qtyMatch = remainingText.toString().match(/\d+(\.\d+)?/);
@@ -281,7 +274,7 @@ export default function PatientHomeScreen() {
           }
           setLogModalVisible(false);
           setToastVisible(true);
-          fetchHistoryLogs(true); // Cập nhật lại lịch sử ngầm để Thuật toán Trừ lùi chạy lại
+          fetchHistoryLogs(true); 
           setTimeout(() => setToastVisible(false), 2500);
       } else { Alert.alert('Lỗi Server', result.message); }
     } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ.'); } finally { setIsLogging(false); }
@@ -345,7 +338,8 @@ export default function PatientHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="pill" size={32} color={colors.primary} />
+              {/* 🔥 Đổi Icon Pill thành Logo Mắt cho ngầu 🔥 */}
+              <Image source={require('../assets/images/favicon.png')} style={{ width: 30, height: 30, marginRight: 10 }} resizeMode="contain" />
               <Text style={styles.modalTitle}>Xác Nhận Sử Dụng Thuốc</Text> 
             </View>
             {selectedMed && (
@@ -415,7 +409,12 @@ export default function PatientHomeScreen() {
       {/* HEADER CHÍNH */}
       <View style={styles.appHeader}>
         <TouchableOpacity style={styles.headerProfile} activeOpacity={0.7} onPress={() => { setProfileModalVisible(true); fetchProfileData(); }}>
-          <View style={styles.avatar}><MaterialCommunityIcons name="face-man-profile" size={35} color={colors.primary} /></View>
+          
+          {/* 🔥 THAY AVATAR MẶC ĐỊNH BẰNG LOGO PHÒNG KHÁM 🔥 */}
+          <View style={styles.avatar}>
+            <Image source={require('../assets/images/favicon.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
+          </View>
+
           <View>
             <Text style={styles.welcomeText}>Xin chào,</Text>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -472,7 +471,6 @@ export default function PatientHomeScreen() {
                   <Text style={styles.medName}>{item.MedicineName}</Text>
                   <Text style={styles.medDetail}>Liều dùng: {item.Dose}</Text>
                   
-                  {/* 🔥 CHỖ NÀY ĐÃ ĐƯỢC NÂNG CẤP ĐỂ HIỂN THỊ SỐ CÒN LẠI THỰC TẾ 🔥 */}
                   {item.Quantity && (
                     <Text style={[styles.medDetail, {fontSize: 13, color: '#0F766E', fontWeight: 'bold', marginTop: 4}]}>
                       Còn lại: {calculateRemaining(item)}

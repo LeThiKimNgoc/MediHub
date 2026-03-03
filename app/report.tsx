@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Alert, Platform } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Alert, Platform, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router'; 
@@ -244,7 +245,7 @@ export default function ReportScreen() {
 
     return (
       <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Chỉ Số Tuân Thủ Toàn Phòng Khám</Text>
+        <Text style={styles.sectionTitle}>Chỉ Số Tuân Thủ Tổng</Text>
         
         <View style={styles.mainCard}>
           <View style={styles.mainCardHeader}>
@@ -400,13 +401,16 @@ export default function ReportScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* --- HEADER CHỐNG ĐÈ CHỮ (SỬA LẠI LOGO PILL NÈ) --- */}
+        {/* --- HEADER CHỐNG ĐÈ CHỮ --- */}
         {isMobile ? (
           <View style={[styles.header, styles.headerMobile]}>
              <View style={styles.headerTopRowMobile}>
                <View style={styles.brandBoxMobile}>
                   <View style={styles.brandRow}>
-                    <View style={styles.logoCircleMobile}><MaterialCommunityIcons name="pill" size={20} color={colors.headerBgPastel} /></View>
+                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
+                    <View style={styles.logoCircleMobile}>
+                        <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
+                    </View>
                     <Text style={styles.brandMediMobile}>Medi<Text style={styles.brandHubMobile}>Hub</Text></Text>
                   </View>
                </View>
@@ -429,7 +433,10 @@ export default function ReportScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    <View style={styles.logoCircle}><MaterialCommunityIcons name="pill" size={24} color={colors.headerBgPastel} /></View>
+                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
+                    <View style={styles.logoCircle}>
+                        <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
+                    </View>
                     <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
                   </View>
                 </View>
@@ -487,8 +494,11 @@ const styles = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   brandBox: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', flexDirection: 'row', alignItems: 'center' },
+  
+  // 🔥 ĐÃ THAY NỀN TRẮNG CHO LOGO PC 🔥
   brandRow: { flexDirection: 'row', alignItems: 'center' },
-  logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
+  logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
+  
   brandMedi: { fontSize: 30, fontWeight: '600', color: '#FFFFFF', marginLeft: 12, letterSpacing: 1, fontStyle: 'italic', textShadowColor: 'rgba(0, 0, 0, 0.35)', textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 4 },
   brandHub: { fontWeight: '900', color: '#FFFFFF' },
   brandSlogan: { fontSize: 12, fontWeight: '600', color: 'rgba(255, 255, 255, 0.8)', marginLeft: 12, marginTop: 6, textShadowColor: 'rgba(0, 0, 0, 0.2)', textShadowRadius: 2 },
@@ -504,7 +514,10 @@ const styles = StyleSheet.create({
   headerMobile: { paddingVertical: 20, paddingHorizontal: 15, marginBottom: 5 },
   headerTopRowMobile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBoxMobile: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)' },
+  
+  // 🔥 LOGO MOBILE ĐÃ SẴN NỀN TRẮNG 🔥
   logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
+  
   brandMediMobile: { fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginLeft: 10, fontStyle: 'italic' },
   brandHubMobile: { fontWeight: '900' },
   headerIconBtnMobile: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

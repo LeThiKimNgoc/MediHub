@@ -246,7 +246,7 @@ export default function LoginScreen() {
               </View>
 
               <TouchableOpacity style={[styles.loginBtn, {backgroundColor: colors.actionBlack}]} onPress={handleAdminLogin} disabled={loading}>
-                {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.loginBtnText}>ĐĂNG NHẬP DƯỢC SĨ</Text>}
+                {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.loginBtnText}>ĐĂNG NHẬP</Text>}
               </TouchableOpacity>
             </View>
           )}

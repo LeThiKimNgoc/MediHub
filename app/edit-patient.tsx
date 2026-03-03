@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -81,7 +82,13 @@ export default function EditPatientScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.warning} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.warning }]}>Sửa Hồ Sơ Bệnh Nhân</Text>
+        
+        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
+        <View style={styles.logoCircleHeader}>
+          <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+        </View>
+
+        <Text style={[styles.headerTitle, { color: colors.warning }]}>Sửa Hồ Sơ</Text>
       </View>
 
       <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
@@ -130,7 +137,14 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
   toastContainer: { position: 'absolute', top: 75, right: 20, backgroundColor: colors.success, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3 },
   toastText: { color: colors.white, fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
-  appHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 15, elevation: 4 }, backButton: { marginRight: 15, padding: 5 }, headerTitle: { fontSize: 22, fontWeight: 'bold' },
+  
+  appHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 15, elevation: 4 }, 
+  backButton: { marginRight: 15, padding: 5 }, 
+  
+  // 🔥 Thêm Style cho Logo trên Header 🔥
+  logoCircleHeader: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  
+  headerTitle: { fontSize: 22, fontWeight: 'bold' },
   formContainer: { flex: 1, padding: 20 }, inputGroup: { marginBottom: 18 }, label: { fontSize: 15, fontWeight: '600', color: colors.textDark, marginBottom: 8 },
   input: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark }, textArea: { height: 70, textAlignVertical: 'top' },
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }, chip: { paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.chipBg, borderRadius: 25, borderWidth: 1, borderColor: colors.chipBg }, chipSelected: { backgroundColor: colors.chipSelectedBg, borderColor: colors.chipSelectedBg }, chipText: { fontSize: 15, color: colors.chipText, fontWeight: '500' }, chipTextSelected: { color: colors.chipSelectedText, fontWeight: '700' },

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TextInput, TouchableOpacity, Alert, useWindowDimensions, Platform, RefreshControl } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TextInput, TouchableOpacity, Alert, useWindowDimensions, Platform, RefreshControl, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router'; 
@@ -189,8 +190,9 @@ export default function HomeScreen() {
              <View style={styles.headerTopRowMobile}>
                <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    <View style={styles.logoCircle}>
-                        <MaterialCommunityIcons name="pill" size={22} color="#FFFFFF" />
+                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
+                    <View style={styles.logoCircleMobile}>
+                        <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
                     </View>
                     <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
                   </View>
@@ -214,8 +216,9 @@ export default function HomeScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
+                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
                     <View style={styles.logoCircle}>
-                      <MaterialCommunityIcons name="pill" size={24} color="#FFFFFF" />
+                      <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
                     </View>
                     <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
                   </View>
@@ -318,7 +321,7 @@ const styles = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   
-  // 🔥 STYLE LOGO CHUYÊN NGHIỆP 🔥
+  // 🔥 STYLE LOGO ĐÃ ĐƯỢC CHỈNH NỀN TRẮNG 🔥
   brandBox: {
     paddingHorizontal: 4,
     paddingVertical: 4,
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
     width: 36, 
     height: 36, 
     borderRadius: 10, 
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+    backgroundColor: '#FFFFFF', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
@@ -358,7 +361,7 @@ const styles = StyleSheet.create({
 
   headerMobile: { paddingVertical: 20, paddingHorizontal: 15, marginBottom: 15 },
   headerTopRowMobile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', justifyContent: 'center', alignItems: 'center' },
+  logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   headerIconBtnMobile: { width: 42, height: 42, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   headerBottomRowMobile: { marginTop: 15, alignItems: 'center' },
   pageTitleMobile: { fontSize: 16, fontWeight: '900', color: '#FFFFFF', letterSpacing: 1 },

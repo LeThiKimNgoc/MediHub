@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -63,6 +64,12 @@ export default function AddMedicineScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
         </TouchableOpacity>
+        
+        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
+        <View style={styles.logoCircleHeader}>
+          <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+        </View>
+
         <Text style={styles.headerTitle}>Thêm Thuốc Mới</Text>
       </View>
 
@@ -154,6 +161,10 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f4f7f6' },
   appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0056b3', paddingVertical: 18, paddingHorizontal: 15, elevation: 5 },
   backButton: { marginRight: 15, padding: 5 },
+  
+  // 🔥 Thêm Style cho Logo trên Header 🔥
+  logoCircleHeader: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   formContainer: { flex: 1, padding: 20 },
   instruction: { fontSize: 15, color: '#64748b', marginBottom: 20, fontStyle: 'italic' },

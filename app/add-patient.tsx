@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform } from 'react-native';
+// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -140,7 +141,13 @@ export default function AddPatientScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thêm Hồ Sơ Bệnh Nhân</Text>
+        
+        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
+        <View style={styles.logoCircleHeader}>
+          <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
+        </View>
+
+        <Text style={styles.headerTitle}>Thêm Hồ Sơ</Text>
       </View>
 
       <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
@@ -238,6 +245,10 @@ const styles = StyleSheet.create({
 
   appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 15, elevation: 4 },
   backButton: { marginRight: 15, padding: 5 },
+  
+  // 🔥 Thêm Style cho Logo trên Header 🔥
+  logoCircleHeader: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: colors.headerText },
   formContainer: { flex: 1, padding: 20 },
   instruction: { fontSize: 14, color: '#D84315', marginBottom: 20, fontStyle: 'italic', backgroundColor: '#FFCCBC', padding: 10, borderRadius: 8 },
