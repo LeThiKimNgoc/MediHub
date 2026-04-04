@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
 import { getEyeIndicator } from '../../utils/helpers';
-
+import { getEyeIndicator, getMedIcon } from '../../utils/helpers';
 interface MedCardItemProps {
   item: any;
   isDoneToday: boolean;
@@ -30,7 +30,7 @@ export const MedCardItem: React.FC<MedCardItemProps> = ({ item, isDoneToday, onP
       </View>
       {!isDoneToday ? (
         <TouchableOpacity style={styles.actionBtn} onPress={onPress}>
-          <MaterialCommunityIcons name="eyedropper" size={24} color="white" />
+          <MaterialCommunityIcons name={getMedIcon(item) as any} size={24} color="white" />
         </TouchableOpacity>
       ) : (
         <View style={[styles.actionBtn, { backgroundColor: '#10B981' }]}>

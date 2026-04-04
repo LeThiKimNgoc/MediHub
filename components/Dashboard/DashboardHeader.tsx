@@ -54,7 +54,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           
           <View style={styles.heroContent}>
             <View style={styles.heroIconBox}>
-              <MaterialCommunityIcons name={getMedIcon(dashboardStats.nextDose.MedicineName, dashboardStats.nextDose.Dose)} size={40} color={colors.primary} />
+              <MaterialCommunityIcons name={getMedIcon(dashboardStats.nextDose) as any} size={40} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroMedName}>{dashboardStats.nextDose.MedicineName}</Text>

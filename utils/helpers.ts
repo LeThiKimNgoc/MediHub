@@ -9,9 +9,17 @@ export const getEyeIndicator = (text: string) => {
   return null;
 };
 
-// Hàm phân loại icon Giọt/Tuýp
-export const getMedIcon = (name: string, dose: string) => {
-  const combined = `${name} ${dose}`.toLowerCase();
-  if (combined.includes('mỡ') || combined.includes('gel') || combined.includes('tuýp')) return 'tube';
-  return 'water';
+// Hàm phân loại Icon theo quy cách đóng gói/sử dụng
+export const getMedIcon = (item: any) => {
+  if (!item) return 'water';
+  
+  // Gộp tất cả các trường dữ liệu lại để tìm từ khóa
+  const combined = `${item.MedicineName} ${item.Dose} ${item.Usage} ${item.Quantity}`.toLowerCase();
+
+  if (combined.includes('viên')) return 'pill';
+  if (combined.includes('tra mắt') || combined.includes('mỡ') || combined.includes('gel') || combined.includes('tuýp')) return 'tube';
+  if (combined.includes('dùng ngoài') || combined.includes('chườm')) return 'sleep'; // Icon mặt nạ chườm
+  if (combined.includes('lọ') || combined.includes('giọt')) return 'water'; // Icon giọt nước
+
+  return 'water'; // Mặc định nếu không khớp từ khóa nào
 };
