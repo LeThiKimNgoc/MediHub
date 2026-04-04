@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../constants/theme';
-import { getEyeIndicator } from '../utils/helpers';
+import { colors } from '../../constants/theme';
+import { getEyeIndicator } from '../../utils/helpers';
 
 interface MedCardItemProps {
   item: any;
