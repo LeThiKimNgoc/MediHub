@@ -51,3 +51,25 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+// ==========================================
+// THÊM BẢNG MÀU DÀNH RIÊNG CHO GIAO DIỆN NHÃN KHOA 
+// ==========================================
+export const colors = {
+  bg: '#F0F9FF', 
+  primary: '#0284C7', 
+  primaryLight: '#E0F2FE', 
+  cardBg: '#FFFFFF', 
+  textDark: '#0F172A', 
+  textLight: '#64748B',
+  timeColor: '#EA580C', 
+  statusDone: '#16A34A', 
+  statusSnooze: '#F59E0B', 
+  statusMissed: '#DC2626',
+  danger: '#EF4444', 
+  warningBg: '#FEF2F2', 
+  warningBorder: '#FCA5A5',
+  eyeLeft: '#3B82F6', 
+  eyeRight: '#EF4444', 
+  eyeBoth: '#8B5CF6'
+};
