@@ -17,9 +17,9 @@ if (Platform.OS !== 'web') {
 }
 
 const colors = {
-  bg: '#F0F8FF', primary: '#0F766E', cardBg: '#FFFFFF', textDark: '#263238', textLight: '#78909C',
-  timeColor: '#E65100', statusDone: '#4CAF50', statusSnooze: '#FF9800', statusMissed: '#F44336',
-  danger: '#F44336', warningBg: '#FFF3E0', warningBorder: '#FF9800'
+  bg: '#F4F7F6', primary: '#0F766E', cardBg: '#FFFFFF', textDark: '#1E293B', textLight: '#475569',
+  timeColor: '#D97706', statusDone: '#16A34A', statusSnooze: '#F59E0B', statusMissed: '#DC2626',
+  danger: '#DC2626', warningBg: '#FEF2F2', warningBorder: '#F87171'
 };
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
@@ -152,11 +152,10 @@ export default function PatientHomeScreen() {
     }
   };
 
-  // 🔥 LEVEL 1: OFFLINE-FIRST CHO HỒ SƠ BỆNH NHÂN 🔥
   const fetchProfileData = async () => {
     const cachedProfile = await AsyncStorage.getItem(`@cached_profile_${patientId}`);
     if (cachedProfile) {
-      setProfileData(JSON.parse(cachedProfile)); // Load ngay lập tức từ bộ nhớ
+      setProfileData(JSON.parse(cachedProfile)); 
     } else {
       setLoadingProfile(true);
     }
@@ -172,7 +171,7 @@ export default function PatientHomeScreen() {
             const patient = results.data.find((p: any) => p.PatientID === patientId);
             if (patient) {
               setProfileData(patient);
-              await AsyncStorage.setItem(`@cached_profile_${patientId}`, JSON.stringify(patient)); // Cập nhật bộ nhớ đệm
+              await AsyncStorage.setItem(`@cached_profile_${patientId}`, JSON.stringify(patient));
             }
             setLoadingProfile(false);
           }
@@ -181,13 +180,12 @@ export default function PatientHomeScreen() {
       .catch(() => setLoadingProfile(false));
   };
 
-  // 🔥 LEVEL 1: OFFLINE-FIRST CHO DANH SÁCH THUỐC 🔥
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
       if (cachedMeds) {
         setMedications(JSON.parse(cachedMeds));
-        setLoading(false); // Đã có bộ nhớ đệm thì tắt Loading quay quay ngay
+        setLoading(false); 
       } else {
         setLoading(true);
       }
@@ -206,7 +204,7 @@ export default function PatientHomeScreen() {
             myMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
             
             setMedications(myMeds);
-            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(myMeds)); // Cập nhật bộ nhớ đệm
+            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(myMeds)); 
             
             setLoading(false); setRefreshing(false); 
             scheduleMedicationReminders(myMeds);
@@ -214,11 +212,9 @@ export default function PatientHomeScreen() {
         });
       }).catch(() => { 
         setLoading(false); setRefreshing(false); 
-        // Nếu rớt mạng, không làm sập App, bệnh nhân vẫn xài bộ đệm cũ
       });
   };
 
-  // 🔥 LEVEL 1: OFFLINE-FIRST CHO LỊCH SỬ NHẬT KÝ 🔥
   const fetchHistoryLogs = async (background = false) => {
     if (!background) {
       const cachedHistory = await AsyncStorage.getItem(`@cached_history_${patientId}`);
@@ -240,7 +236,7 @@ export default function PatientHomeScreen() {
           complete: async (results) => {
             let myLogs = results.data.filter((item: any) => item.PatientsID === patientId);
             setHistoryLogs(myLogs);
-            await AsyncStorage.setItem(`@cached_history_${patientId}`, JSON.stringify(myLogs)); // Cập nhật bộ đệm
+            await AsyncStorage.setItem(`@cached_history_${patientId}`, JSON.stringify(myLogs)); 
             if (!background) setLoadingHistory(false);
           }
         });
@@ -360,7 +356,6 @@ export default function PatientHomeScreen() {
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có muốn thoát tài khoản?')) {
-        // Xóa sạch trí nhớ khi đăng xuất
         AsyncStorage.removeItem('patientId');
         AsyncStorage.removeItem('patientName');
         router.replace('/');
@@ -384,29 +379,29 @@ export default function PatientHomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
-      {/* MODAL HOTLINE / MENU GÓP Ý CHUYÊN NGHIỆP */}
+      {/* MODAL HOTLINE */}
       <Modal visible={isSosModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="headset" size={30} color={colors.primary} style={{ marginRight: 10 }} />
+              <MaterialCommunityIcons name="headset" size={36} color={colors.primary} style={{ marginRight: 10 }} />
               <Text style={styles.modalTitle}>Liên Hệ & Góp Ý</Text>
             </View>
-            <Text style={{ fontSize: 15, color: colors.textLight, marginBottom: 20 }}>Bạn cần hỗ trợ từ Phòng khám hoặc muốn gửi phản hồi?</Text>
+            <Text style={{ fontSize: 18, color: colors.textLight, marginBottom: 25 }}>Bạn cần hỗ trợ từ Phòng khám hoặc muốn gửi phản hồi?</Text>
 
-            <View style={{ gap: 12 }}>
-              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#E3F2FD', borderColor: '#2196F3' }]} onPress={() => { setSosModalVisible(false); Linking.openURL('https://zalo.me/0901234567'); }}>
-                <MaterialCommunityIcons name="chat-processing" size={26} color="#2196F3" />
-                <Text style={[styles.sosMenuText, { color: '#2196F3' }]}>Nhắn tin Zalo ngay</Text>
+            <View style={{ gap: 16 }}>
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#E0F2FE', borderColor: '#0284C7' }]} onPress={() => { setSosModalVisible(false); Linking.openURL('https://zalo.me/0901234567'); }}>
+                <MaterialCommunityIcons name="chat-processing" size={32} color="#0284C7" />
+                <Text style={[styles.sosMenuText, { color: '#0284C7' }]}>Nhắn tin Zalo ngay</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#F3E5F5', borderColor: '#9C27B0' }]} onPress={() => { setSosModalVisible(false); setFeedbackModalVisible(true); }}>
-                <MaterialCommunityIcons name="email-edit" size={26} color="#9C27B0" />
-                <Text style={[styles.sosMenuText, { color: '#9C27B0' }]}>Góp ý bằng văn bản</Text>
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#FAE8FF', borderColor: '#9333EA' }]} onPress={() => { setSosModalVisible(false); setFeedbackModalVisible(true); }}>
+                <MaterialCommunityIcons name="email-edit" size={32} color="#9333EA" />
+                <Text style={[styles.sosMenuText, { color: '#9333EA' }]}>Góp ý bằng văn bản</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#FFEBEE', borderColor: colors.danger }]} onPress={() => setSosModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={26} color={colors.danger} />
+              <TouchableOpacity style={[styles.sosMenuBtn, { backgroundColor: '#FEE2E2', borderColor: colors.danger }]} onPress={() => setSosModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={32} color={colors.danger} />
                 <Text style={[styles.sosMenuText, { color: colors.danger }]}>Hủy bỏ</Text>
               </TouchableOpacity>
             </View>
@@ -419,34 +414,34 @@ export default function PatientHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="email-edit" size={30} color="#9C27B0" style={{ marginRight: 10 }} />
+              <MaterialCommunityIcons name="email-edit" size={36} color="#9333EA" style={{ marginRight: 10 }} />
               <Text style={styles.modalTitle}>Gửi Phản Hồi</Text>
             </View>
             
-            <Text style={{ fontSize: 14, color: colors.textDark, marginBottom: 15 }}>Xin vui lòng nhập ý kiến, câu hỏi hoặc triệu chứng của bạn vào bên dưới:</Text>
+            <Text style={{ fontSize: 18, color: colors.textDark, marginBottom: 15, fontWeight: '500' }}>Xin vui lòng nhập ý kiến hoặc triệu chứng của bạn:</Text>
 
             <TextInput
               style={styles.feedbackInput}
-              placeholder="Nhập nội dung vào đây..."
-              placeholderTextColor={colors.textLight}
+              placeholder="Chạm vào đây để viết..."
+              placeholderTextColor="#94A3B8"
               multiline={true}
-              numberOfLines={5}
+              numberOfLines={6}
               value={feedbackText}
               onChangeText={setFeedbackText}
               textAlignVertical="top"
             />
 
             {isSubmittingFeedback ? (
-              <ActivityIndicator size="large" color="#9C27B0" style={{ marginVertical: 15 }} />
+              <ActivityIndicator size="large" color="#9333EA" style={{ marginVertical: 20 }} />
             ) : (
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#9C27B0' }]} onPress={submitFeedback}>
-                  <MaterialCommunityIcons name="send" size={24} color="white" />
-                  <Text style={styles.logBtnText}>Gửi Góp Ý</Text>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 25 }}>
+                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#9333EA' }]} onPress={submitFeedback}>
+                  <MaterialCommunityIcons name="send" size={28} color="white" />
+                  <Text style={styles.logBtnText}>Gửi Ngay</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#E0E0E0' }]} onPress={() => { setFeedbackModalVisible(false); setFeedbackText(''); }}>
-                  <MaterialCommunityIcons name="close" size={24} color={colors.textDark} />
-                  <Text style={[styles.logBtnText, { color: colors.textDark }]}>Hủy</Text>
+                <TouchableOpacity style={[styles.logBtn, { backgroundColor: '#E2E8F0' }]} onPress={() => { setFeedbackModalVisible(false); setFeedbackText(''); }}>
+                  <MaterialCommunityIcons name="close" size={28} color={colors.textDark} />
+                  <Text style={[styles.logBtnText, { color: colors.textDark }]}>Trở Về</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -460,18 +455,18 @@ export default function PatientHomeScreen() {
           <View style={styles.profileModalContent}>
             <View style={styles.profileHeader}>
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <MaterialCommunityIcons name="clipboard-account" size={28} color={colors.primary} />
+                <MaterialCommunityIcons name="clipboard-account" size={32} color={colors.primary} />
                 <Text style={styles.profileTitle}>Hồ Sơ Y Tế</Text>
               </View>
               <TouchableOpacity onPress={() => setProfileModalVisible(false)} style={styles.closeBtn}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.textDark} />
+                <MaterialCommunityIcons name="close" size={28} color={colors.textDark} />
               </TouchableOpacity>
             </View>
 
             {loadingProfile ? (
-              <View style={{paddingVertical: 40, alignItems: 'center'}}>
+              <View style={{paddingVertical: 50, alignItems: 'center'}}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={{color: colors.textLight, marginTop: 10}}>Đang tải hồ sơ...</Text>
+                <Text style={{color: colors.textLight, marginTop: 15, fontSize: 16}}>Đang tải hồ sơ...</Text>
               </View>
             ) : (
               <View style={styles.profileDetails}>
@@ -479,7 +474,7 @@ export default function PatientHomeScreen() {
                 <View style={styles.profileRow}><Text style={styles.profileLabel}>Họ và Tên:</Text><Text style={styles.profileValue}>{profileData?.Name || patientName}</Text></View>
                 <View style={styles.profileRow}><Text style={styles.profileLabel}>Tuổi:</Text><Text style={styles.profileValue}>{profileData?.Age ? `${profileData.Age} tuổi` : '---'}</Text></View>
                 <View style={styles.profileRow}><Text style={styles.profileLabel}>Giới tính:</Text><Text style={styles.profileValue}>{profileData?.Gender || '---'}</Text></View>
-                <View style={styles.profileRow}><Text style={styles.profileLabel}>Mã ICD / Bệnh lý:</Text><Text style={[styles.profileValue, {color: colors.timeColor, fontWeight: 'bold'}]}>{profileData?.ICD || 'Chưa cập nhật'}</Text></View>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Mã ICD / Bệnh:</Text><Text style={[styles.profileValue, {color: colors.timeColor, fontWeight: 'bold'}]}>{profileData?.ICD || 'Chưa cập nhật'}</Text></View>
                 <View style={[styles.profileRow, {borderBottomWidth: 0}]}><Text style={styles.profileLabel}>Ngày bắt đầu:</Text><Text style={styles.profileValue}>{profileData?.DayStart || '---'}</Text></View>
               </View>
             )}
@@ -492,26 +487,34 @@ export default function PatientHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Image source={require('../assets/images/favicon.png')} style={{ width: 30, height: 30, marginRight: 10 }} resizeMode="contain" />
-              <Text style={styles.modalTitle}>Xác Nhận Sử Dụng Thuốc</Text> 
+              <Text style={styles.modalTitle}>Xác Nhận Thuốc</Text> 
             </View>
             {selectedMed && (
               <View style={styles.medInfoBox}>
                 <Text style={styles.medNameModal}>{selectedMed.MedicineName}</Text>
-                <Text style={styles.medTimeModal}>Giờ dùng: {selectedMed.Time}</Text> 
+                <Text style={styles.medTimeModal}>Giờ uống: {selectedMed.Time}</Text> 
                 <Text style={styles.medDoseModal}>Liều lượng: {selectedMed.Dose} ({selectedMed.Usage})</Text>
               </View>
             )}
             {isLogging ? (
-              <ActivityIndicator size="large" color={colors.primary} style={{marginVertical: 30}} />
+              <ActivityIndicator size="large" color={colors.primary} style={{marginVertical: 40}} />
             ) : (
               <View style={styles.logActions}>
-                <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusDone}]} onPress={() => submitLog('Đã sử dụng')}><MaterialCommunityIcons name="check-circle" size={32} color="white" /><Text style={styles.logBtnText}>Đã Sử Dụng</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusSnooze}]} onPress={() => submitLog('Nhắc lại')}><MaterialCommunityIcons name="alarm-snooze" size={32} color="white" /><Text style={styles.logBtnText}>Nhắc Lại</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusMissed}]} onPress={() => submitLog('Bỏ lỡ')}><MaterialCommunityIcons name="close-circle" size={32} color="white" /><Text style={styles.logBtnText}>Bỏ Lỡ</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusDone}]} onPress={() => submitLog('Đã sử dụng')}>
+                  <MaterialCommunityIcons name="check-circle" size={36} color="white" />
+                  <Text style={styles.logBtnText}>Đã Uống</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusSnooze}]} onPress={() => submitLog('Nhắc lại')}>
+                  <MaterialCommunityIcons name="alarm-snooze" size={36} color="white" />
+                  <Text style={styles.logBtnText}>Chưa Uống</Text>
+                </TouchableOpacity>
               </View>
             )}
-            {!isLogging && (<TouchableOpacity style={styles.modalBtnCancel} onPress={() => setLogModalVisible(false)}><Text style={{color: colors.textLight, fontWeight: 'bold', fontSize: 16}}>HỦY BỎ</Text></TouchableOpacity>)}
+            {!isLogging && (
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setLogModalVisible(false)}>
+                <Text style={{color: colors.textLight, fontWeight: 'bold', fontSize: 18}}>BỎ QUA LẦN NÀY</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -521,8 +524,10 @@ export default function PatientHomeScreen() {
         <View style={styles.historyModalOverlay}>
           <View style={styles.historyModalContent}>
             <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Nhật Ký Đã Ghi Nhận</Text>
-              <TouchableOpacity onPress={() => setHistoryModalVisible(false)} style={styles.closeBtn}><MaterialCommunityIcons name="close" size={24} color={colors.textDark} /></TouchableOpacity>
+              <Text style={styles.historyTitle}>Lịch Sử Ghi Nhận</Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="close" size={28} color={colors.textDark} />
+              </TouchableOpacity>
             </View>
             {loadingHistory ? (
               <View style={styles.centerContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
@@ -531,30 +536,31 @@ export default function PatientHomeScreen() {
                 data={historyLogs}
                 keyExtractor={(item, index) => index.toString()}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 20 }}
+                contentContainerStyle={{ paddingBottom: 25 }}
                 renderItem={({ item }) => {
-                  let statusColor = item.Status === 'Đã sử dụng' ? '#2E7D32' : (item.Status === 'Bỏ lỡ' ? '#C62828' : '#EF6C00');
-                  let bgColor = item.Status === 'Đã sử dụng' ? '#E8F5E9' : (item.Status === 'Bỏ lỡ' ? '#FFEBEE' : '#FFF3E0');
+                  let statusColor = item.Status === 'Đã sử dụng' ? '#15803D' : (item.Status === 'Bỏ lỡ' ? '#B91C1C' : '#C2410C');
+                  let bgColor = item.Status === 'Đã sử dụng' ? '#DCFCE7' : (item.Status === 'Bỏ lỡ' ? '#FEE2E2' : '#FFEDD5');
                   let iconName: any = item.Status === 'Đã sử dụng' ? 'check-circle' : (item.Status === 'Bỏ lỡ' ? 'close-circle' : 'alarm-snooze');
 
                   if (item.Action === 'Góp ý') {
-                    statusColor = '#9C27B0';
-                    bgColor = '#F3E5F5';
-                    iconName = 'email-fast';
+                    statusColor = '#7E22CE'; bgColor = '#F3E8FF'; iconName = 'email-fast';
                   }
 
                   return (
                     <View style={styles.historyCard}>
-                      <View style={{flex: 1}}>
-                        <Text style={styles.historyMedName}>{item.Action === 'Góp ý' ? '💌 Phản hồi từ Bệnh nhân' : item.MedicineName}</Text>
-                        <Text style={styles.historyTime}>{item.Action === 'Góp ý' ? 'Nội dung:' : `Cữ quy định: ${item.PlannedTime}`}</Text>
-                        <Text style={styles.historyTimestamp}>Ghi nhận lúc: {item.Timestamp || 'Hôm nay'}</Text>
+                      <View style={{flex: 1, paddingRight: 10}}>
+                        <Text style={styles.historyMedName}>{item.Action === 'Góp ý' ? '💌 Phản hồi đã gửi' : item.MedicineName}</Text>
+                        <Text style={styles.historyTime}>{item.Action === 'Góp ý' ? 'Đã gửi tới phòng khám' : `Cữ thuốc lúc: ${item.PlannedTime}`}</Text>
+                        <Text style={styles.historyTimestamp}>Ghi nhận: {item.Timestamp || 'Hôm nay'}</Text>
                       </View>
-                      <View style={[styles.historyStatusBadge, {backgroundColor: bgColor, maxWidth: 120}]}><MaterialCommunityIcons name={iconName} size={16} color={statusColor} style={{marginRight: 4}} /><Text style={[styles.historyStatusText, {color: statusColor}]} numberOfLines={1}>{item.Status}</Text></View>
+                      <View style={[styles.historyStatusBadge, {backgroundColor: bgColor}]}>
+                        <MaterialCommunityIcons name={iconName} size={18} color={statusColor} style={{marginRight: 4}} />
+                        <Text style={[styles.historyStatusText, {color: statusColor}]} numberOfLines={1}>{item.Status}</Text>
+                      </View>
                     </View>
                   );
                 }}
-                ListEmptyComponent={<View style={styles.emptyContainer}><MaterialCommunityIcons name="text-box-search-outline" size={60} color="#B0BEC5" /><Text style={styles.emptyText}>Chưa có lịch sử.</Text></View>}
+                ListEmptyComponent={<View style={styles.emptyContainer}><MaterialCommunityIcons name="text-box-search-outline" size={80} color="#CBD5E1" /><Text style={styles.emptyText}>Chưa có lịch sử dùng thuốc.</Text></View>}
               />
             )}
           </View>
@@ -562,57 +568,51 @@ export default function PatientHomeScreen() {
       </Modal>
 
       {toastVisible && (
-        <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={24} color="white" /><Text style={styles.toastText}>Ghi nhận thành công!</Text></View>
+        <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={28} color="white" /><Text style={styles.toastText}>Đã lưu thành công!</Text></View>
       )}
 
       {/* HEADER CHÍNH */}
       <View style={styles.appHeader}>
         <TouchableOpacity style={styles.headerProfile} activeOpacity={0.7} onPress={() => { setProfileModalVisible(true); fetchProfileData(); }}>
-          
           <View style={styles.avatar}>
-            <Image source={require('../assets/images/favicon.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
+            <MaterialCommunityIcons name="account" size={36} color={colors.primary} />
           </View>
-
           <View>
-            <Text style={styles.welcomeText}>Xin chào,</Text>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              <Text style={styles.patientName}>{patientName}</Text>
-              <MaterialCommunityIcons name="information" size={16} color="rgba(255,255,255,0.7)" style={{marginLeft: 6}} />
-            </View>
-            <Text style={styles.patientId}>ID: {patientId}</Text>
+            <Text style={styles.patientName} numberOfLines={1}>{patientName}</Text>
+            <Text style={styles.patientId}>Chạm để xem hồ sơ</Text>
           </View>
         </TouchableOpacity>
         
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <View style={styles.streakBadge}>
-            <MaterialCommunityIcons name="fire" size={22} color={streak > 0 ? "#FFCA28" : "#90A4AE"} />
-            <Text style={[styles.streakText, streak === 0 && {color: '#90A4AE'}]}>{streak}</Text>
+            <MaterialCommunityIcons name="fire" size={24} color={streak > 0 ? "#FCD34D" : "#94A3B8"} />
+            <Text style={[styles.streakText, streak === 0 && {color: '#94A3B8'}]}>{streak}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}><MaterialCommunityIcons name="logout" size={20} color="white" /></TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.contentContainer}>
         {lowMeds.length > 0 && !loading && (
           <View style={styles.warningBanner}>
-            <MaterialCommunityIcons name="alert" size={28} color={colors.timeColor} />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.warningTitle}>Chú ý: Gần hết thuốc!</Text>
-              <Text style={styles.warningText}>Bạn sắp hết: <Text style={{fontWeight: 'bold'}}>{lowMeds.map(m => m.MedicineName).join(', ')}</Text>. Vui lòng liên hệ Bác sĩ.</Text>
+            <MaterialCommunityIcons name="alert-circle" size={32} color={colors.danger} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.warningTitle}>Sắp hết thuốc!</Text>
+              <Text style={styles.warningText}>Các thuốc sắp hết: <Text style={{fontWeight: 'bold'}}>{lowMeds.map(m => m.MedicineName).join(', ')}</Text>. Hãy liên hệ Bác sĩ.</Text>
             </View>
           </View>
         )}
 
         <View style={styles.sectionHeader}>
-          <View style={styles.dateHeader}><MaterialCommunityIcons name="calendar-today" size={22} color={colors.textDark} /><Text style={styles.dateText}>Lịch Dùng Thuốc</Text></View>
-          <View style={{flexDirection: 'row', gap: 10}}>
-            <TouchableOpacity onPress={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }} style={[styles.refreshBtn, {backgroundColor: '#E8F5E9'}]}><MaterialCommunityIcons name="history" size={24} color="#4CAF50" /></TouchableOpacity>
-            <TouchableOpacity onPress={onRefresh} style={styles.refreshBtn} disabled={refreshing}><MaterialCommunityIcons name="refresh" size={24} color={refreshing ? colors.textLight : colors.primary} /></TouchableOpacity>
+          <View style={styles.dateHeader}>
+            <MaterialCommunityIcons name="calendar-month" size={26} color={colors.textDark} />
+            <Text style={styles.dateText}>Lịch Uống Thuốc</Text>
+          </View>
+          <View style={{flexDirection: 'row', gap: 12}}>
+            <TouchableOpacity onPress={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }} style={[styles.actionIconButton, {backgroundColor: '#E0F2FE'}]}><MaterialCommunityIcons name="history" size={28} color="#0284C7" /></TouchableOpacity>
+            <TouchableOpacity onPress={onRefresh} style={[styles.actionIconButton, {backgroundColor: '#F1F5F9'}]} disabled={refreshing}><MaterialCommunityIcons name="refresh" size={28} color={refreshing ? colors.textLight : colors.textDark} /></TouchableOpacity>
           </View>
         </View>
         
-        <Text style={styles.pullToRefreshHint}><MaterialCommunityIcons name="gesture-swipe-down" size={14} color={colors.textLight} /> Vuốt xuống hoặc bấm nút ↻ để tải mới</Text>
-
         {loading ? (
           <View style={styles.centerContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
         ) : (
@@ -620,31 +620,36 @@ export default function PatientHomeScreen() {
             data={medications}
             keyExtractor={(item, index) => item.ID ? item.ID.toString() : index.toString()}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }} 
+            contentContainerStyle={{ paddingBottom: 120, paddingTop: 10 }} 
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
             renderItem={({ item }) => (
               <View style={styles.medCard}>
-                <View style={styles.timeBlock}><MaterialCommunityIcons name="clock-outline" size={24} color={colors.timeColor} /><Text style={styles.timeText}>{item.Time}</Text></View>
+                <View style={styles.timeBlock}>
+                  <Text style={styles.timeText}>{item.Time}</Text>
+                </View>
                 <View style={styles.infoBlock}>
-                  <Text style={styles.medName}>{item.MedicineName}</Text>
-                  <Text style={styles.medDetail}>Liều dùng: {item.Dose}</Text>
+                  <Text style={styles.medName} numberOfLines={2}>{item.MedicineName}</Text>
+                  <Text style={styles.medDetail}>Liều: {item.Dose}</Text>
                   
                   {item.Quantity && (
-                    <Text style={[styles.medDetail, {fontSize: 13, color: '#0F766E', fontWeight: 'bold', marginTop: 4}]}>
+                    <Text style={styles.medRemaining}>
                       Còn lại: {calculateRemaining(item)}
                     </Text>
                   )}
-
                 </View>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => openLogModal(item)}><MaterialCommunityIcons name="gesture-tap" size={24} color={colors.primary} /><Text style={styles.actionBtnText}>Xác nhận</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => openLogModal(item)}>
+                  <MaterialCommunityIcons name="check-bold" size={28} color="white" />
+                </TouchableOpacity>
               </View>
             )}
-            ListEmptyComponent={<View style={styles.emptyContainer}><MaterialCommunityIcons name="emoticon-happy-outline" size={80} color="#B0BEC5" /><Text style={styles.emptyText}>Bác sĩ chưa gán lịch thuốc cho bạn.</Text></View>}
+            ListEmptyComponent={<View style={styles.emptyContainer}><MaterialCommunityIcons name="pill" size={80} color="#CBD5E1" /><Text style={styles.emptyText}>Hôm nay bạn không có lịch uống thuốc.</Text></View>}
           />
         )}
       </View>
 
-      <TouchableOpacity style={styles.sosFab} onPress={handleSOS} activeOpacity={0.8}><MaterialCommunityIcons name="chat-question" size={32} color="#FFFFFF" /></TouchableOpacity>
+      <TouchableOpacity style={styles.sosFab} onPress={handleSOS} activeOpacity={0.8}>
+        <MaterialCommunityIcons name="phone-plus" size={32} color="#FFFFFF" />
+      </TouchableOpacity>
 
     </SafeAreaView>
   );
@@ -653,80 +658,82 @@ export default function PatientHomeScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  appHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary, padding: 20, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, elevation: 5 },
-  headerProfile: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 50, height: 50, backgroundColor: 'white', borderRadius: 25, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  welcomeText: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
-  patientName: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  patientId: { fontSize: 12, color: 'white', opacity: 0.9 },
   
-  streakBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
-  streakText: { color: '#FFF', fontWeight: '900', fontSize: 16, marginLeft: 4 },
+  appHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary, padding: 25, borderBottomLeftRadius: 30, borderBottomRightRadius: 30, elevation: 6 },
+  headerProfile: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  avatar: { width: 56, height: 56, backgroundColor: 'white', borderRadius: 28, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  patientName: { fontSize: 22, fontWeight: 'bold', color: 'white', marginBottom: 4 },
+  patientId: { fontSize: 16, color: '#E0F2FE', fontWeight: '500' },
   
-  logoutBtn: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 10, borderRadius: 15 },
-  contentContainer: { flex: 1, paddingHorizontal: 20, paddingTop: 15 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 25, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+  streakText: { color: '#FFF', fontWeight: 'bold', fontSize: 18, marginLeft: 6 },
   
-  warningBanner: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 15, borderRadius: 15, borderWidth: 1, borderColor: colors.warningBorder, marginBottom: 15, alignItems: 'center', elevation: 2 },
-  warningTitle: { fontSize: 15, fontWeight: 'bold', color: colors.timeColor, marginBottom: 2 },
-  warningText: { fontSize: 13, color: colors.textDark, lineHeight: 18 },
+  contentContainer: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  
+  warningBanner: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 18, borderRadius: 20, borderWidth: 1.5, borderColor: colors.warningBorder, marginBottom: 20, alignItems: 'center', elevation: 2 },
+  warningTitle: { fontSize: 18, fontWeight: 'bold', color: colors.danger, marginBottom: 4 },
+  warningText: { fontSize: 16, color: colors.textDark, lineHeight: 24 },
 
-  sosFab: { position: 'absolute', bottom: 30, right: 20, zIndex: 9999, elevation: 99, backgroundColor: colors.primary, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, borderWidth: 2, borderColor: '#B2DFDB' },
+  sosFab: { position: 'absolute', bottom: 30, right: 20, zIndex: 9999, elevation: 8, backgroundColor: '#EA580C', width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 5, borderWidth: 3, borderColor: '#FFEDD5' },
 
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   dateHeader: { flexDirection: 'row', alignItems: 'center' },
-  refreshBtn: { padding: 5, backgroundColor: '#E3F2FD', borderRadius: 20, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  pullToRefreshHint: { fontSize: 13, color: colors.textLight, fontStyle: 'italic', marginBottom: 15, marginLeft: 5 },
-
-  dateText: { fontSize: 18, fontWeight: 'bold', color: colors.textDark, marginLeft: 8 },
-  medCard: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 20, padding: 15, marginBottom: 15, elevation: 3, alignItems: 'center' },
-  timeBlock: { alignItems: 'center', justifyContent: 'center', paddingRight: 15, borderRightWidth: 1, borderRightColor: '#E0E0E0', minWidth: 70 },
-  timeText: { fontSize: 18, fontWeight: 'bold', color: colors.timeColor },
-  infoBlock: { flex: 1, paddingLeft: 15 },
-  medName: { fontSize: 17, fontWeight: 'bold', color: colors.textDark },
-  medDetail: { fontSize: 14, color: colors.textLight },
-  actionBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#E3F2FD', padding: 10, borderRadius: 15, minWidth: 75 },
-  actionBtnText: { color: colors.primary, fontSize: 11, fontWeight: 'bold', marginTop: 4 },
+  actionIconButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginLeft: 10 },
-  medInfoBox: { backgroundColor: '#F5F5F5', borderRadius: 15, padding: 20, alignItems: 'center', marginBottom: 25 },
-  medNameModal: { fontSize: 24, fontWeight: 'bold', color: colors.primary, marginBottom: 5 },
-  medTimeModal: { fontSize: 16, color: colors.timeColor, fontWeight: 'bold' },
-  medDoseModal: { fontSize: 14, color: colors.textLight },
-  logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  logBtn: { flex: 1, paddingVertical: 20, borderRadius: 20, alignItems: 'center', elevation: 2 },
-  logBtnText: { color: 'white', fontWeight: 'bold', marginTop: 8 },
-  modalBtnCancel: { marginTop: 25, padding: 15, alignItems: 'center' },
+  dateText: { fontSize: 22, fontWeight: 'bold', color: colors.textDark, marginLeft: 10 },
   
-  profileModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  profileModalContent: { backgroundColor: 'white', width: '85%', borderRadius: 24, padding: 20, elevation: 10 },
-  profileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEEEEE', paddingBottom: 15 },
-  profileTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, marginLeft: 10 },
-  closeBtn: { padding: 5, backgroundColor: '#F5F5F5', borderRadius: 15 },
-  profileDetails: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#E2E8F0' },
-  profileRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
-  profileLabel: { fontSize: 15, color: colors.textLight, fontWeight: '600' },
-  profileValue: { fontSize: 15, color: colors.textDark, fontWeight: '800', textAlign: 'right', flex: 1, marginLeft: 20 },
+  medCard: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 24, padding: 18, marginBottom: 16, elevation: 4, alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
+  timeBlock: { alignItems: 'center', justifyContent: 'center', paddingRight: 16, borderRightWidth: 1.5, borderRightColor: '#E2E8F0', minWidth: 80 },
+  timeText: { fontSize: 24, fontWeight: 'bold', color: colors.timeColor },
+  infoBlock: { flex: 1, paddingLeft: 16 },
+  medName: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, marginBottom: 6 },
+  medDetail: { fontSize: 16, color: colors.textLight, marginBottom: 4 },
+  medRemaining: { fontSize: 15, color: '#047857', fontWeight: 'bold' },
+  
+  actionBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, width: 56, height: 56, borderRadius: 28, marginLeft: 10 },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 30 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  modalTitle: { fontSize: 26, fontWeight: 'bold', color: colors.textDark },
+  medInfoBox: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 25, alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: '#E2E8F0' },
+  medNameModal: { fontSize: 26, fontWeight: 'bold', color: colors.primary, marginBottom: 10, textAlign: 'center' },
+  medTimeModal: { fontSize: 20, color: colors.timeColor, fontWeight: 'bold', marginBottom: 5 },
+  medDoseModal: { fontSize: 18, color: colors.textLight },
+  
+  logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 15 },
+  logBtn: { flex: 1, paddingVertical: 18, borderRadius: 20, alignItems: 'center', elevation: 3 },
+  logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginTop: 10 },
+  modalBtnCancel: { marginTop: 30, padding: 20, alignItems: 'center' },
+  
+  profileModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  profileModalContent: { backgroundColor: 'white', width: '90%', borderRadius: 30, padding: 25, elevation: 10 },
+  profileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 20 },
+  profileTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textDark, marginLeft: 12 },
+  closeBtn: { padding: 8, backgroundColor: '#F1F5F9', borderRadius: 20 },
+  profileDetails: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
+  profileRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  profileLabel: { fontSize: 17, color: colors.textLight, fontWeight: '500' },
+  profileValue: { fontSize: 17, color: colors.textDark, fontWeight: 'bold', textAlign: 'right', flex: 1, marginLeft: 15 },
 
-  historyModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  historyModalContent: { backgroundColor: 'white', width: '90%', height: '80%', borderRadius: 25, padding: 20, elevation: 10 },
-  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEEEEE', paddingBottom: 15 },
-  historyTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark },
-  historyCard: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: '#FAFAFA', borderRadius: 15, marginBottom: 12, borderWidth: 1, borderColor: '#EEEEEE' },
-  historyMedName: { fontSize: 16, fontWeight: 'bold', color: colors.textDark, marginBottom: 4 },
-  historyTime: { fontSize: 13, color: colors.textLight },
-  historyTimestamp: { fontSize: 12, color: colors.primary, marginTop: 4, fontStyle: 'italic' },
-  historyStatusBadge: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
-  historyStatusText: { fontSize: 12, fontWeight: 'bold' },
+  historyModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  historyModalContent: { backgroundColor: 'white', width: '95%', height: '85%', borderRadius: 30, padding: 25, elevation: 10 },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 20 },
+  historyTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textDark },
+  historyCard: { flexDirection: 'row', alignItems: 'center', padding: 18, backgroundColor: '#F8FAFC', borderRadius: 20, marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0' },
+  historyMedName: { fontSize: 18, fontWeight: 'bold', color: colors.textDark, marginBottom: 6 },
+  historyTime: { fontSize: 15, color: colors.textLight },
+  historyTimestamp: { fontSize: 14, color: '#64748B', marginTop: 6, fontStyle: 'italic' },
+  historyStatusBadge: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20 },
+  historyStatusText: { fontSize: 14, fontWeight: 'bold' },
 
-  toastContainer: { position: 'absolute', top: 120, alignSelf: 'center', backgroundColor: colors.statusDone, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 30, flexDirection: 'row', alignItems: 'center', zIndex: 1000 },
-  toastText: { color: 'white', fontWeight: 'bold', marginLeft: 10 },
-  emptyContainer: { padding: 50, alignItems: 'center' },
-  emptyText: { color: colors.textLight, textAlign: 'center', fontSize: 16, marginTop: 10 },
+  toastContainer: { position: 'absolute', top: '15%', alignSelf: 'center', backgroundColor: '#15803D', paddingVertical: 16, paddingHorizontal: 25, borderRadius: 30, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 10 },
+  toastText: { color: 'white', fontWeight: 'bold', fontSize: 18, marginLeft: 12 },
+  
+  emptyContainer: { padding: 60, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { color: '#94A3B8', textAlign: 'center', fontSize: 18, marginTop: 15 },
 
-  sosMenuBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, elevation: 1 },
-  sosMenuText: { fontSize: 16, fontWeight: 'bold', marginLeft: 15 },
-  feedbackInput: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, fontSize: 16, color: colors.textDark, minHeight: 120, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 }
+  sosMenuBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, elevation: 1 },
+  sosMenuText: { fontSize: 18, fontWeight: 'bold', marginLeft: 16 },
+  feedbackInput: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 20, fontSize: 18, color: colors.textDark, minHeight: 150, borderWidth: 1, borderColor: '#CBD5E1', elevation: 1 }
 });
