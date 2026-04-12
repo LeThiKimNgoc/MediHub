@@ -53,9 +53,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       </View>
 
       {dashboardStats.nextDose && !loading && (
-        {/* ĐÃ THAY THẾ THẺ VIEW BẰNG LINEAR GRADIENT Ở ĐÂY */}
         <LinearGradient 
-          colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']} // Dải màu từ Xanh dương nhạt sang Trắng
+          colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']} 
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
@@ -144,7 +143,7 @@ const styles = StyleSheet.create({
   progressRatio: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
   progressBarBg: { height: 10, backgroundColor: '#E2E8F0', borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 5 },
-  heroCard: { backgroundColor: 'white', borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 2, borderColor: colors.primaryLight, elevation: 5 },
+  heroCard: { borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 2, borderColor: colors.primaryLight, elevation: 5 },
   heroHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   heroTitle: { fontSize: 18, fontWeight: 'bold', color: colors.timeColor, marginLeft: 8 },
   heroContent: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
