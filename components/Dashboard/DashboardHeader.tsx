@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../../constants/theme';
-import { getEyeIndicator, getMedIcon } from '../../utils/helpers';
+import { colors } from '../constants/theme';
+import { getEyeIndicator, getMedIcon, getMedTerminology } from '../utils/helpers';
 
 const { width } = Dimensions.get('window');
 
@@ -15,41 +15,49 @@ interface DashboardHeaderProps {
   onOpenHistory: () => void;
   onRefresh: () => void;
   onSOS: () => void;
+  onLogout: () => void; // Thêm prop đăng xuất
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
-  patientName, dashboardStats, loading, onOpenProfile, onOpenLogModal, onOpenHistory, onRefresh, onSOS
+  patientName, dashboardStats, loading, onOpenProfile, onOpenLogModal, onOpenHistory, onRefresh, onSOS, onLogout
 }) => {
+  // Lấy bộ từ vựng cho liều tiếp theo
+  const terms = getMedTerminology(dashboardStats.nextDose);
+
   return (
     <View style={styles.dashboardContainer}>
+      {/* HEADER BÊN TRÊN CÙNG */}
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.greetingText}>Xin chào,</Text>
           <Text style={styles.patientName}>{patientName}</Text>
         </View>
-        <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
-          <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
+            <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
+          </TouchableOpacity>
+          {/* NÚT ĐĂNG XUẤT MỚI TẠI ĐÂY */}
+          <TouchableOpacity style={styles.logoutBtnTop} onPress={onLogout}>
+            <MaterialCommunityIcons name="logout" size={24} color={colors.danger} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.progressCard}>
         <View style={styles.progressTextRow}>
-          <Text style={styles.progressTitle}>Tiến độ tra thuốc hôm nay</Text>
+          <Text style={styles.progressTitle}>Tiến độ dùng thuốc hôm nay</Text>
           <Text style={styles.progressRatio}>{dashboardStats.completed}/{dashboardStats.total}</Text>
         </View>
         <View style={styles.progressBarBg}>
           <View style={[styles.progressBarFill, { width: `${dashboardStats.progressPercent}%` }]} />
         </View>
-        {dashboardStats.progressPercent === 100 && dashboardStats.total > 0 && (
-          <Text style={styles.progressSuccessText}>🎉 Bạn đã hoàn thành xuất sắc lịch hôm nay!</Text>
-        )}
       </View>
 
       {dashboardStats.nextDose && !loading && (
         <View style={styles.heroCard}>
           <View style={styles.heroHeader}>
             <MaterialCommunityIcons name="alarm" size={24} color={colors.timeColor} />
-            <Text style={styles.heroTitle}>Cần nhỏ tiếp theo lúc: {dashboardStats.nextDose.Time}</Text>
+            <Text style={styles.heroTitle}>Cần {terms.action} tiếp theo lúc: {dashboardStats.nextDose.Time}</Text>
           </View>
           
           <View style={styles.heroContent}>
@@ -70,19 +78,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </View>
 
           <View style={styles.hygieneNote}>
-            <MaterialCommunityIcons name="hand-water" size={18} color="#059669" />
-            <Text style={styles.hygieneText}>Lưu ý: Rửa tay sạch bằng xà phòng trước khi nhỏ.</Text>
+            <MaterialCommunityIcons name="information-outline" size={18} color="#059669" />
+            <Text style={styles.hygieneText}>{terms.note}</Text>
           </View>
 
           <TouchableOpacity style={styles.heroBtn} onPress={() => onOpenLogModal(dashboardStats.nextDose)}>
             <MaterialCommunityIcons name="check-decagram" size={24} color="white" />
-            <Text style={styles.heroBtnText}>XÁC NHẬN ĐÃ NHỎ</Text>
+            <Text style={styles.heroBtnText}>XÁC NHẬN ĐÃ {terms.btn}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       <Text style={styles.sectionTitle}>Công cụ hỗ trợ</Text>
       <View style={styles.gridContainer}>
+        {/* ... (Giữ nguyên phần grid container 4 nút: Lịch sử, Hồ sơ, Gặp bác sĩ, Làm mới) ... */}
         <TouchableOpacity style={styles.gridItem} onPress={onOpenHistory}>
           <View style={[styles.iconWrapper, { backgroundColor: '#FEF08A' }]}>
             <MaterialCommunityIcons name="clipboard-text-clock-outline" size={32} color="#CA8A04" />
@@ -118,18 +127,20 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // ... (giữ nguyên các style cũ của file này, thêm style sau cho nút Logout) ...
   dashboardContainer: { padding: 20, paddingTop: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
   greetingText: { fontSize: 16, color: colors.textLight },
   patientName: { fontSize: 26, fontWeight: 'bold', color: colors.textDark },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatarBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  logoutBtnTop: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' },
   progressCard: { backgroundColor: 'white', padding: 20, borderRadius: 24, marginBottom: 25, elevation: 4 },
   progressTextRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   progressTitle: { fontSize: 16, fontWeight: 'bold', color: colors.textDark },
   progressRatio: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
   progressBarBg: { height: 10, backgroundColor: '#E2E8F0', borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 5 },
-  progressSuccessText: { color: '#10B981', fontWeight: '600', marginTop: 10, fontSize: 14, textAlign: 'center' },
   heroCard: { backgroundColor: 'white', borderRadius: 24, padding: 20, marginBottom: 25, borderWidth: 2, borderColor: colors.primaryLight, elevation: 5 },
   heroHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   heroTitle: { fontSize: 18, fontWeight: 'bold', color: colors.timeColor, marginLeft: 8 },

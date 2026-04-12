@@ -21,5 +21,24 @@ export const getMedIcon = (item: any) => {
   if (combined.includes('dùng ngoài') || combined.includes('chườm')) return 'sleep'; // Icon mặt nạ chườm
   if (combined.includes('lọ') || combined.includes('giọt')) return 'water'; // Icon giọt nước
 
-  return 'water'; // Mặc định nếu không khớp từ khóa nào
+  return 'water';
+}; // <-- Lỗi lúc nãy là do thiếu dấu đóng ngoặc này ở đây
+
+// Hàm phân loại Thuật ngữ (Uống/Nhỏ/Tra/Dùng ngoài)
+export const getMedTerminology = (item: any) => {
+  if (!item) return { action: 'dùng', note: 'Lưu ý: Đọc kỹ hướng dẫn sử dụng trước khi dùng.', btn: 'DÙNG' };
+  
+  const combined = `${item.MedicineName} ${item.Dose} ${item.Usage} ${item.Quantity}`.toLowerCase();
+
+  if (combined.includes('viên')) {
+    return { action: 'uống', note: 'Lưu ý: Uống thuốc với nhiều nước lọc.', btn: 'UỐNG' };
+  }
+  if (combined.includes('tra mắt') || combined.includes('mỡ') || combined.includes('gel') || combined.includes('tuýp')) {
+    return { action: 'tra', note: 'Lưu ý: Rửa tay sạch bằng xà phòng trước khi tra.', btn: 'TRA THUỐC' };
+  }
+  if (combined.includes('miếng') || combined.includes('dùng ngoài') || combined.includes('chườm')) {
+    return { action: 'dùng ngoài', note: 'Lưu ý: Vệ sinh vùng da/mắt trước khi sử dụng.', btn: 'SỬ DỤNG' };
+  }
+  // Mặc định là thuốc nhỏ mắt (giọt, lọ...)
+  return { action: 'nhỏ', note: 'Lưu ý: Rửa tay sạch bằng xà phòng trước khi nhỏ.', btn: 'NHỎ THUỐC' };
 };

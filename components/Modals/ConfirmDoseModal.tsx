@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-import { getEyeIndicator } from '../../utils/helpers';
+// Import thêm getMedTerminology
+import { getEyeIndicator, getMedTerminology } from '../../utils/helpers'; 
 
 interface ConfirmDoseModalProps {
   visible: boolean;
@@ -15,13 +16,17 @@ interface ConfirmDoseModalProps {
 export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med, isLogging, onSubmit, onClose }) => {
   if (!med) return null;
   const eyeInfo = getEyeIndicator(med.Usage || med.Dose);
+  
+  // Khai báo terms để lấy từ vựng động
+  const terms = getMedTerminology(med); 
 
   return (
     <Modal visible={visible} transparent={true} animationType="slide">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Xác Nhận Tra Thuốc</Text>
+            {/* Chữ trên tiêu đề cũng tự đổi theo thuật ngữ */}
+            <Text style={styles.modalTitle}>Xác Nhận {terms.btn}</Text>
           </View>
           
           <View style={styles.medInfoBox}>
@@ -40,11 +45,13 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
             <View style={styles.logActions}>
               <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusDone}]} onPress={() => onSubmit('Đã sử dụng')}>
                 <MaterialCommunityIcons name="check-circle" size={36} color="white" />
-                <Text style={styles.logBtnText}>Đã Nhỏ</Text>
+                {/* Đổi chữ ở đây */}
+                <Text style={styles.logBtnText}>Đã {terms.btn}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusSnooze}]} onPress={() => onSubmit('Nhắc lại')}>
                 <MaterialCommunityIcons name="alarm-snooze" size={36} color="white" />
-                <Text style={styles.logBtnText}>Chưa Nhỏ</Text>
+                {/* Và ở đây */}
+                <Text style={styles.logBtnText}>Chưa {terms.btn}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -72,6 +79,6 @@ const styles = StyleSheet.create({
   eyeBadgeText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 15 },
   logBtn: { flex: 1, paddingVertical: 18, borderRadius: 20, alignItems: 'center', elevation: 3 },
-  logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginTop: 8 },
+  logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginTop: 8, textAlign: 'center' },
   modalBtnCancel: { marginTop: 25, padding: 15, alignItems: 'center' },
 });
