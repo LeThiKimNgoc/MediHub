@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, Alert, Platform, RefreshControl } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-// Đã thêm 'router' vào dòng import này:
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router'; 
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -11,11 +10,11 @@ import { colors } from '../constants/theme';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { MedCardItem } from '../components/Dashboard/MedCardItem';
 
-// Import 4 Modals đã tách
 import { ConfirmDoseModal } from '../components/Modals/ConfirmDoseModal';
 import { ContactClinicModal } from '../components/Modals/ContactClinicModal';
 import { ProfileModal } from '../components/Modals/ProfileModal';
 import { HistoryModal } from '../components/Modals/HistoryModal';
+import { SymptomModal } from '../components/Modals/SymptomModal';
 
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
@@ -38,7 +37,7 @@ export default function PatientHomeScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
-  // State quản lý Modals
+  const [isSymptomModalVisible, setSymptomModalVisible] = useState(false);
   const [isLogModalVisible, setLogModalVisible] = useState(false);
   const [isSosModalVisible, setSosModalVisible] = useState(false);
   const [isHistoryModalVisible, setHistoryModalVisible] = useState(false);
@@ -48,15 +47,25 @@ export default function PatientHomeScreen() {
   const [isLogging, setIsLogging] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [streak, setStreak] = useState(0);
+  
+  // Bộ đếm ngược khoảng nghỉ
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (cooldown > 0) {
+      timer = setInterval(() => setCooldown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [cooldown]);
 
   useEffect(() => { /* Config Notifications */ }, []);
-  const checkStreak = async () => { /* Giữ nguyên */ };
+  const checkStreak = async () => { };
   useEffect(() => { if (patientId) checkStreak(); }, [patientId]);
-  const updateStreak = async () => { /* Giữ nguyên */ return { increased: false, currentStreak: streak }; };
+  const updateStreak = async () => { return { increased: false, currentStreak: streak }; };
 
-  const scheduleMedicationReminders = async (meds: any[]) => { /* Giữ nguyên */ };
-
-  const fetchProfileData = async () => { /* Logic gọi API Profile (giữ nguyên) */ };
+  const scheduleMedicationReminders = async (meds: any[]) => { };
+  const fetchProfileData = async () => { };
   
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
@@ -105,19 +114,46 @@ export default function PatientHomeScreen() {
       const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(logPayload) });
       const result = JSON.parse(await response.text());
       if (result.status === 'success') {
+          if (newStatus === 'Đã sử dụng') {
+             setCooldown(600); 
+          }
           setLogModalVisible(false); setToastVisible(true); fetchHistoryLogs(true); 
           setTimeout(() => setToastVisible(false), 2500);
       } else Alert.alert('Lỗi', result.message);
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
-  // --- HÀM ĐĂNG XUẤT MỚI THÊM VÀO ---
+  // --- HÀM GỬI NHẬT KÝ TRIỆU CHỨNG ---
+  const submitSymptoms = async (symptoms: string) => {
+    setIsLogging(true);
+    const logPayload = { 
+      action: 'add', 
+      sheetName: 'Log', 
+      data: { 
+        PatientsID: patientId, 
+        MedicineName: 'NHẬT KÝ TRIỆU CHỨNG', 
+        PlannedTime: `${new Date().getHours()}:${new Date().getMinutes()}`, 
+        Action: 'Bệnh nhân tự báo cáo', 
+        Status: symptoms 
+      } 
+    };
+    try {
+      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(logPayload) });
+      const result = JSON.parse(await response.text());
+      if (result.status === 'success') {
+          setSymptomModalVisible(false); setToastVisible(true); fetchHistoryLogs(true);
+          setTimeout(() => setToastVisible(false), 2500);
+      }
+    } catch (error) { Alert.alert('Lỗi', 'Không thể gửi dữ liệu.'); } 
+    finally { setIsLogging(false); }
+  };
+
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có chắc chắn muốn thoát tài khoản?')) {
         AsyncStorage.removeItem('patientId');
         AsyncStorage.removeItem('patientName');
-        router.replace('/'); // Chuyển về trang đăng nhập
+        router.replace('/'); 
       }
     } else {
       Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
@@ -125,7 +161,7 @@ export default function PatientHomeScreen() {
         { text: 'Thoát', style: 'destructive', onPress: () => {
           AsyncStorage.removeItem('patientId');
           AsyncStorage.removeItem('patientName');
-          router.replace('/'); // Chuyển về trang đăng nhập
+          router.replace('/'); 
         }}
       ]);
     }
@@ -159,12 +195,15 @@ export default function PatientHomeScreen() {
             <DashboardHeader 
               patientName={patientName} 
               dashboardStats={dashboardStats} 
+              cooldown={cooldown} 
               loading={loading}
               onOpenProfile={() => { setProfileModalVisible(true); fetchProfileData(); }}
               onOpenLogModal={(med) => { setSelectedMed(med); setLogModalVisible(true); }}
               onOpenHistory={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}
               onRefresh={onRefresh}
               onSOS={() => setSosModalVisible(true)}
+              onLogout={handleLogout} 
+              onOpenSymptoms={() => setSymptomModalVisible(true)} // --- ĐÃ THÊM LỆNH MỞ MODAL ---
             />
           }
           keyExtractor={(item, index) => item.ID ? item.ID.toString() : index.toString()}
@@ -179,22 +218,14 @@ export default function PatientHomeScreen() {
         />
       )}
 
-      {/* Gọi các Modal Components */}
+      {/* DANH SÁCH CÁC MODAL */}
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      
-      {/* Đã thêm onLogout={handleLogout} vào ProfileModal */}
-      <ProfileModal 
-        visible={isProfileModalVisible} 
-        profileData={profileData} 
-        loadingProfile={loadingProfile} 
-        patientId={patientId} 
-        patientName={patientName} 
-        onClose={() => setProfileModalVisible(false)} 
-        onLogout={handleLogout}
-      />
-      
+      <ProfileModal visible={isProfileModalVisible} profileData={profileData} loadingProfile={loadingProfile} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
+      
+      {/* ĐÃ GỌI COMPONENT SYMPTOM MODAL Ở ĐÂY */}
+      <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={submitSymptoms} onClose={() => setSymptomModalVisible(false)} />
 
       {toastVisible && (
         <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={28} color="white" /><Text style={styles.toastText}>Đã ghi nhận thành công!</Text></View>
