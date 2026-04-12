@@ -10,9 +10,10 @@ interface ProfileModalProps {
   patientId: string;
   patientName: string;
   onClose: () => void;
+  onLogout: () => void; // Thêm prop này
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData, loadingProfile, patientId, patientName, onClose }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData, loadingProfile, patientId, patientName, onClose, onLogout }) => {
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <View style={styles.profileModalOverlay}>
@@ -33,13 +34,21 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData
               <Text style={{color: colors.textLight, marginTop: 15, fontSize: 16}}>Đang tải hồ sơ...</Text>
             </View>
           ) : (
-            <View style={styles.profileDetails}>
-              <View style={styles.profileRow}><Text style={styles.profileLabel}>Mã Bệnh Nhân:</Text><Text style={styles.profileValue}>{profileData?.PatientID || patientId}</Text></View>
-              <View style={styles.profileRow}><Text style={styles.profileLabel}>Họ và Tên:</Text><Text style={styles.profileValue}>{profileData?.Name || patientName}</Text></View>
-              <View style={styles.profileRow}><Text style={styles.profileLabel}>Tuổi:</Text><Text style={styles.profileValue}>{profileData?.Age ? `${profileData.Age} tuổi` : '---'}</Text></View>
-              <View style={styles.profileRow}><Text style={styles.profileLabel}>Giới tính:</Text><Text style={styles.profileValue}>{profileData?.Gender || '---'}</Text></View>
-              <View style={styles.profileRow}><Text style={styles.profileLabel}>Chẩn đoán:</Text><Text style={[styles.profileValue, {color: colors.timeColor, fontWeight: 'bold'}]}>{profileData?.ICD || 'Chưa cập nhật'}</Text></View>
-              <View style={[styles.profileRow, {borderBottomWidth: 0}]}><Text style={styles.profileLabel}>Ngày khám:</Text><Text style={styles.profileValue}>{profileData?.DayStart || '---'}</Text></View>
+            <View>
+              <View style={styles.profileDetails}>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Mã Bệnh Nhân:</Text><Text style={styles.profileValue}>{profileData?.PatientID || patientId}</Text></View>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Họ và Tên:</Text><Text style={styles.profileValue}>{profileData?.Name || patientName}</Text></View>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Tuổi:</Text><Text style={styles.profileValue}>{profileData?.Age ? `${profileData.Age} tuổi` : '---'}</Text></View>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Giới tính:</Text><Text style={styles.profileValue}>{profileData?.Gender || '---'}</Text></View>
+                <View style={styles.profileRow}><Text style={styles.profileLabel}>Chẩn đoán:</Text><Text style={[styles.profileValue, {color: colors.timeColor, fontWeight: 'bold'}]}>{profileData?.ICD || 'Chưa cập nhật'}</Text></View>
+                <View style={[styles.profileRow, {borderBottomWidth: 0}]}><Text style={styles.profileLabel}>Ngày khám:</Text><Text style={styles.profileValue}>{profileData?.DayStart || '---'}</Text></View>
+              </View>
+
+              {/* Nút Đăng Xuất */}
+              <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+                <MaterialCommunityIcons name="logout" size={24} color="white" />
+                <Text style={styles.logoutText}>Đăng Xuất Tài Khoản</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -54,8 +63,11 @@ const styles = StyleSheet.create({
   profileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', paddingBottom: 20 },
   profileTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textDark, marginLeft: 12 },
   closeBtn: { padding: 8, backgroundColor: '#F1F5F9', borderRadius: 20 },
-  profileDetails: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
+  profileDetails: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 20 },
   profileRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   profileLabel: { fontSize: 17, color: colors.textLight, fontWeight: '500' },
   profileValue: { fontSize: 17, color: colors.textDark, fontWeight: 'bold', textAlign: 'right', flex: 1, marginLeft: 15 },
+  // Thêm style cho nút đăng xuất
+  logoutBtn: { flexDirection: 'row', backgroundColor: '#EF4444', paddingVertical: 15, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  logoutText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 8 }
 });

@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, Alert, Platform, RefreshControl } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router'; 
+// Đã thêm 'router' vào dòng import này:
+import { useFocusEffect, useLocalSearchParams, router } from 'expo-router'; 
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
@@ -110,6 +111,26 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
+  // --- HÀM ĐĂNG XUẤT MỚI THÊM VÀO ---
+  const handleLogout = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Bạn có chắc chắn muốn thoát tài khoản?')) {
+        AsyncStorage.removeItem('patientId');
+        AsyncStorage.removeItem('patientName');
+        router.replace('/'); // Chuyển về trang đăng nhập
+      }
+    } else {
+      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
+        { text: 'Hủy', style: 'cancel' }, 
+        { text: 'Thoát', style: 'destructive', onPress: () => {
+          AsyncStorage.removeItem('patientId');
+          AsyncStorage.removeItem('patientName');
+          router.replace('/'); // Chuyển về trang đăng nhập
+        }}
+      ]);
+    }
+  };
+
   const dashboardStats = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
@@ -161,7 +182,18 @@ export default function PatientHomeScreen() {
       {/* Gọi các Modal Components */}
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      <ProfileModal visible={isProfileModalVisible} profileData={profileData} loadingProfile={loadingProfile} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
+      
+      {/* Đã thêm onLogout={handleLogout} vào ProfileModal */}
+      <ProfileModal 
+        visible={isProfileModalVisible} 
+        profileData={profileData} 
+        loadingProfile={loadingProfile} 
+        patientId={patientId} 
+        patientName={patientName} 
+        onClose={() => setProfileModalVisible(false)} 
+        onLogout={handleLogout}
+      />
+      
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
 
       {toastVisible && (
@@ -171,7 +203,6 @@ export default function PatientHomeScreen() {
   );
 }
 
-// Bảng styles bây giờ gọn gàng vô cùng!
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
