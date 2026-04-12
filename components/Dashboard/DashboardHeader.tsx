@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-nati
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
 import { getEyeIndicator, getMedIcon, getMedTerminology } from '../../utils/helpers';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -15,13 +16,12 @@ interface DashboardHeaderProps {
   onOpenHistory: () => void;
   onRefresh: () => void;
   onSOS: () => void;
-  onLogout: () => void; // Thêm prop đăng xuất
+  onLogout: () => void; 
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   patientName, dashboardStats, loading, onOpenProfile, onOpenLogModal, onOpenHistory, onRefresh, onSOS, onLogout
 }) => {
-  // Lấy bộ từ vựng cho liều tiếp theo
   const terms = getMedTerminology(dashboardStats.nextDose);
 
   return (
@@ -36,7 +36,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
             <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
           </TouchableOpacity>
-          {/* NÚT ĐĂNG XUẤT MỚI TẠI ĐÂY */}
           <TouchableOpacity style={styles.logoutBtnTop} onPress={onLogout}>
             <MaterialCommunityIcons name="logout" size={24} color={colors.danger} />
           </TouchableOpacity>
@@ -54,7 +53,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       </View>
 
       {dashboardStats.nextDose && !loading && (
-        <View style={styles.heroCard}>
+        {/* ĐÃ THAY THẾ THẺ VIEW BẰNG LINEAR GRADIENT Ở ĐÂY */}
+        <LinearGradient 
+          colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']} // Dải màu từ Xanh dương nhạt sang Trắng
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
           <View style={styles.heroHeader}>
             <MaterialCommunityIcons name="alarm" size={24} color={colors.timeColor} />
             <Text style={styles.heroTitle}>Cần {terms.action} tiếp theo lúc: {dashboardStats.nextDose.Time}</Text>
@@ -86,12 +91,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <MaterialCommunityIcons name="check-decagram" size={24} color="white" />
             <Text style={styles.heroBtnText}>XÁC NHẬN ĐÃ {terms.btn}</Text>
           </TouchableOpacity>
-        </View>
+        </LinearGradient>
       )}
 
       <Text style={styles.sectionTitle}>Công cụ hỗ trợ</Text>
       <View style={styles.gridContainer}>
-        {/* ... (Giữ nguyên phần grid container 4 nút: Lịch sử, Hồ sơ, Gặp bác sĩ, Làm mới) ... */}
         <TouchableOpacity style={styles.gridItem} onPress={onOpenHistory}>
           <View style={[styles.iconWrapper, { backgroundColor: '#FEF08A' }]}>
             <MaterialCommunityIcons name="clipboard-text-clock-outline" size={32} color="#CA8A04" />
@@ -127,7 +131,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // ... (giữ nguyên các style cũ của file này, thêm style sau cho nút Logout) ...
   dashboardContainer: { padding: 20, paddingTop: 20 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
   greetingText: { fontSize: 16, color: colors.textLight },
