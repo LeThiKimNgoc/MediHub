@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../constants/theme';
-import { getEyeIndicator, getMedIcon, getMedTerminology } from '../utils/helpers';
+import { colors } from '../../constants/theme';
+import { getEyeIndicator, getMedIcon, getMedTerminology } from '../../utils/helpers';
 
 const { width } = Dimensions.get('window');
 
