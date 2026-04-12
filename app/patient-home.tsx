@@ -10,6 +10,9 @@ import { colors } from '../constants/theme';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { MedCardItem } from '../components/Dashboard/MedCardItem';
 
+// --- IMPORT THÊM HÀM TỪ VỰNG ĐỂ NHẬN DIỆN THUỐC UỐNG HAY NHỎ ---
+import { getMedTerminology } from '../utils/helpers'; 
+
 import { ConfirmDoseModal } from '../components/Modals/ConfirmDoseModal';
 import { ContactClinicModal } from '../components/Modals/ContactClinicModal';
 import { ProfileModal } from '../components/Modals/ProfileModal';
@@ -48,7 +51,6 @@ export default function PatientHomeScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [streak, setStreak] = useState(0);
   
-  // Bộ đếm ngược khoảng nghỉ
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
@@ -115,7 +117,12 @@ export default function PatientHomeScreen() {
       const result = JSON.parse(await response.text());
       if (result.status === 'success') {
           if (newStatus === 'Đã sử dụng') {
-             setCooldown(600); 
+             // --- LOGIC PHÂN LOẠI THUỐC ---
+             const terms = getMedTerminology(selectedMed);
+             // CHỈ BẬT 10 PHÚT NẾU LÀ THUỐC NHỎ HOẶC TRA MẮT
+             if (terms.action === 'nhỏ' || terms.action === 'tra') {
+                 setCooldown(600); 
+             }
           }
           setLogModalVisible(false); setToastVisible(true); fetchHistoryLogs(true); 
           setTimeout(() => setToastVisible(false), 2500);
@@ -123,25 +130,24 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
-  // --- HÀM GỬI NHẬT KÝ TRIỆU CHỨNG ---
   const submitSymptoms = async (symptoms: string) => {
     setIsLogging(true);
     const logPayload = { 
       action: 'add', 
-      sheetName: 'Log', 
+      sheetName: 'TrieuChung', // --- LƯU VÀO TAB MỚI, KHÔNG CHUNG VỚI LOG NỮA ---
       data: { 
         PatientsID: patientId, 
-        MedicineName: 'NHẬT KÝ TRIỆU CHỨNG', 
-        PlannedTime: `${new Date().getHours()}:${new Date().getMinutes()}`, 
-        Action: 'Bệnh nhân tự báo cáo', 
-        Status: symptoms 
+        PatientName: patientName,
+        Time: `${new Date().getHours()}:${new Date().getMinutes()} - ${new Date().getDate()}/${new Date().getMonth() + 1}`, 
+        Symptoms: symptoms 
       } 
     };
     try {
-      const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(logPayload) });
+      // Vì lưu khác Tab nên không cần gọi lại fetchHistoryLogs(true) để load lại thẻ tiến độ
+      const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(logPayload) });
       const result = JSON.parse(await response.text());
       if (result.status === 'success') {
-          setSymptomModalVisible(false); setToastVisible(true); fetchHistoryLogs(true);
+          setSymptomModalVisible(false); setToastVisible(true); 
           setTimeout(() => setToastVisible(false), 2500);
       }
     } catch (error) { Alert.alert('Lỗi', 'Không thể gửi dữ liệu.'); } 
@@ -203,7 +209,7 @@ export default function PatientHomeScreen() {
               onRefresh={onRefresh}
               onSOS={() => setSosModalVisible(true)}
               onLogout={handleLogout} 
-              onOpenSymptoms={() => setSymptomModalVisible(true)} // --- ĐÃ THÊM LỆNH MỞ MODAL ---
+              onOpenSymptoms={() => setSymptomModalVisible(true)} 
             />
           }
           keyExtractor={(item, index) => item.ID ? item.ID.toString() : index.toString()}
@@ -218,13 +224,10 @@ export default function PatientHomeScreen() {
         />
       )}
 
-      {/* DANH SÁCH CÁC MODAL */}
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
       <ProfileModal visible={isProfileModalVisible} profileData={profileData} loadingProfile={loadingProfile} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
-      
-      {/* ĐÃ GỌI COMPONENT SYMPTOM MODAL Ở ĐÂY */}
       <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={submitSymptoms} onClose={() => setSymptomModalVisible(false)} />
 
       {toastVisible && (
