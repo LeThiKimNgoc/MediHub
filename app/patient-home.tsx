@@ -25,7 +25,7 @@ if (Platform.OS !== 'web') {
   });
 }
 
-const SCRIPT_URL = '
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 export default function PatientHomeScreen() {
   const params = useLocalSearchParams();
   const patientId = params.id as string;
