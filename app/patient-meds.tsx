@@ -25,7 +25,7 @@ export default function PatientMedsScreen() {
   const isDesktop = width >= 900; 
 
   // 🔥 XÓA LINK NÀY VÀ DÁN LINK "BẢN TRIỂN KHAI MỚI" CỦA BẠN VÀO ĐÂY 🔥
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
@@ -38,9 +38,9 @@ export default function PatientMedsScreen() {
   const fetchMedications = (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true); 
 
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gidRemind = '1875494973'; 
-    const gidLog = '1617086808'; 
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+    const gidRemind = '2073748495'; 
+    const gidLog = '1373475002'; 
 
     Promise.all([
       fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidRemind}`).then(res => res.text()),

@@ -10,7 +10,7 @@ import { colors } from '../constants/theme';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { MedCardItem } from '../components/Dashboard/MedCardItem';
 
-// --- IMPORT THÊM HÀM TỪ VỰNG ĐỂ NHẬN DIỆN THUỐC UỐNG HAY NHỎ ---
+// Import hàm nhận diện loại thuốc
 import { getMedTerminology } from '../utils/helpers'; 
 
 import { ConfirmDoseModal } from '../components/Modals/ConfirmDoseModal';
@@ -40,6 +40,7 @@ export default function PatientHomeScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   
+  // State quản lý Modals
   const [isSymptomModalVisible, setSymptomModalVisible] = useState(false);
   const [isLogModalVisible, setLogModalVisible] = useState(false);
   const [isSosModalVisible, setSosModalVisible] = useState(false);
@@ -50,9 +51,9 @@ export default function PatientHomeScreen() {
   const [isLogging, setIsLogging] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [streak, setStreak] = useState(0);
-  
   const [cooldown, setCooldown] = useState(0);
 
+  // Đồng hồ chạy lùi
   useEffect(() => {
     let timer: any;
     if (cooldown > 0) {
@@ -61,14 +62,6 @@ export default function PatientHomeScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  useEffect(() => { /* Config Notifications */ }, []);
-  const checkStreak = async () => { };
-  useEffect(() => { if (patientId) checkStreak(); }, [patientId]);
-  const updateStreak = async () => { return { increased: false, currentStreak: streak }; };
-
-  const scheduleMedicationReminders = async (meds: any[]) => { };
-  const fetchProfileData = async () => { };
-  
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
@@ -82,7 +75,7 @@ export default function PatientHomeScreen() {
             let myMeds = results.data.filter((item: any) => item.PatientsID === patientId);
             myMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
             setMedications(myMeds); await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(myMeds)); 
-            setLoading(false); setRefreshing(false); scheduleMedicationReminders(myMeds);
+            setLoading(false); setRefreshing(false);
           }
         });
       }).catch(() => { setLoading(false); setRefreshing(false); });
@@ -109,6 +102,7 @@ export default function PatientHomeScreen() {
   useFocusEffect(useCallback(() => { fetchMedications(); fetchHistoryLogs(true); }, [patientId]));
   const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); fetchHistoryLogs(true); }, [patientId]);
 
+  // XỬ LÝ LOG DÙNG THUỐC
   const submitLog = async (newStatus: string) => {
     setIsLogging(true);
     const logPayload = { action: 'add', sheetName: 'Log', data: { PatientsID: patientId, MedicineName: selectedMed.MedicineName, PlannedTime: selectedMed.Time, Action: 'Bệnh nhân tự xác nhận', Status: newStatus } };
@@ -117,9 +111,8 @@ export default function PatientHomeScreen() {
       const result = JSON.parse(await response.text());
       if (result.status === 'success') {
           if (newStatus === 'Đã sử dụng') {
-             // --- LOGIC PHÂN LOẠI THUỐC ---
              const terms = getMedTerminology(selectedMed);
-             // CHỈ BẬT 10 PHÚT NẾU LÀ THUỐC NHỎ HOẶC TRA MẮT
+             // Chỉ đếm ngược nếu là thuốc nhỏ hoặc tra
              if (terms.action === 'nhỏ' || terms.action === 'tra') {
                  setCooldown(600); 
              }
@@ -130,47 +123,40 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
+  // XỬ LÝ GỬI TRIỆU CHỨNG (Khớp với Google Script để trình hội đồng)
   const submitSymptoms = async (symptoms: string) => {
     setIsLogging(true);
     const logPayload = { 
       action: 'add', 
-      sheetName: 'TrieuChung', // --- LƯU VÀO TAB MỚI, KHÔNG CHUNG VỚI LOG NỮA ---
+      sheetName: 'TrieuChung', 
       data: { 
         PatientsID: patientId, 
-        PatientName: patientName,
-        Time: `${new Date().getHours()}:${new Date().getMinutes()} - ${new Date().getDate()}/${new Date().getMonth() + 1}`, 
-        Symptoms: symptoms 
+        MedicineName: patientName, // Nhét Tên BN vào cột MedicineName (Cột B trên Sheet)
+        PlannedTime: `${new Date().getHours()}:${new Date().getMinutes() < 10 ? '0'+new Date().getMinutes() : new Date().getMinutes()} - ${new Date().getDate()}/${new Date().getMonth() + 1}`, 
+        Action: 'Báo cáo triệu chứng',
+        Status: symptoms // Nhét triệu chứng vào cột Status (Cột E trên Sheet)
       } 
     };
     try {
-      // Vì lưu khác Tab nên không cần gọi lại fetchHistoryLogs(true) để load lại thẻ tiến độ
       const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(logPayload) });
       const result = JSON.parse(await response.text());
       if (result.status === 'success') {
           setSymptomModalVisible(false); setToastVisible(true); 
           setTimeout(() => setToastVisible(false), 2500);
       }
-    } catch (error) { Alert.alert('Lỗi', 'Không thể gửi dữ liệu.'); } 
+    } catch (error) { Alert.alert('Lỗi', 'Không thể gửi báo cáo.'); } 
     finally { setIsLogging(false); }
   };
 
   const handleLogout = () => {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Bạn có chắc chắn muốn thoát tài khoản?')) {
+    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
+      { text: 'Hủy', style: 'cancel' }, 
+      { text: 'Thoát', style: 'destructive', onPress: () => {
         AsyncStorage.removeItem('patientId');
         AsyncStorage.removeItem('patientName');
         router.replace('/'); 
-      }
-    } else {
-      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
-        { text: 'Hủy', style: 'cancel' }, 
-        { text: 'Thoát', style: 'destructive', onPress: () => {
-          AsyncStorage.removeItem('patientId');
-          AsyncStorage.removeItem('patientName');
-          router.replace('/'); 
-        }}
-      ]);
-    }
+      }}
+    ]);
   };
 
   const dashboardStats = useMemo(() => {
@@ -185,8 +171,7 @@ export default function PatientHomeScreen() {
       total: medications.length,
       completed: todayTakenLogs.length,
       progressPercent: medications.length > 0 ? (todayTakenLogs.length / medications.length) * 100 : 0,
-      nextDose,
-      remainingCount: remainingMeds.length
+      nextDose
     };
   }, [medications, historyLogs]);
 
@@ -203,7 +188,7 @@ export default function PatientHomeScreen() {
               dashboardStats={dashboardStats} 
               cooldown={cooldown} 
               loading={loading}
-              onOpenProfile={() => { setProfileModalVisible(true); fetchProfileData(); }}
+              onOpenProfile={() => { setProfileModalVisible(true); }}
               onOpenLogModal={(med) => { setSelectedMed(med); setLogModalVisible(true); }}
               onOpenHistory={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}
               onRefresh={onRefresh}
@@ -212,7 +197,7 @@ export default function PatientHomeScreen() {
               onOpenSymptoms={() => setSymptomModalVisible(true)} 
             />
           }
-          keyExtractor={(item, index) => item.ID ? item.ID.toString() : index.toString()}
+          keyExtractor={(item, index) => index.toString()}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
@@ -220,18 +205,17 @@ export default function PatientHomeScreen() {
             const isDoneToday = historyLogs.some(log => log.MedicineName === item.MedicineName && log.PlannedTime === item.Time && log.Status === 'Đã sử dụng' && log.Timestamp?.includes(new Date().getDate().toString().padStart(2, '0')));
             return <MedCardItem item={item} isDoneToday={isDoneToday} onPress={() => { setSelectedMed(item); setLogModalVisible(true); }} />;
           }}
-          ListEmptyComponent={<View style={{ padding: 40, alignItems: 'center' }}><MaterialCommunityIcons name="eye-check-outline" size={80} color="#CBD5E1" /><Text style={{ color: '#94A3B8', fontSize: 16, marginTop: 10 }}>Không có lịch tra thuốc nào.</Text></View>}
         />
       )}
 
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      <ProfileModal visible={isProfileModalVisible} profileData={profileData} loadingProfile={loadingProfile} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
+      <ProfileModal visible={isProfileModalVisible} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
       <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={submitSymptoms} onClose={() => setSymptomModalVisible(false)} />
 
       {toastVisible && (
-        <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={28} color="white" /><Text style={styles.toastText}>Đã ghi nhận thành công!</Text></View>
+        <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={28} color="white" /><Text style={styles.toastText}>Ghi nhận thành công!</Text></View>
       )}
     </SafeAreaView>
   );

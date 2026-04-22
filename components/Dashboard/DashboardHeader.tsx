@@ -18,7 +18,7 @@ interface DashboardHeaderProps {
   onRefresh: () => void;
   onSOS: () => void;
   onLogout: () => void;
-  onOpenSymptoms: () => void; // Prop để mở Modal Triệu chứng
+  onOpenSymptoms: () => void; 
 }
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -34,6 +34,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <Text style={styles.greetingText}>Xin chào,</Text>
           <Text style={styles.patientName}>{patientName}</Text>
         </View>
+        {/* ĐÃ SỬA div THÀNH View ĐỂ TRÁNH LỖI VĂNG APP */}
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
             <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
@@ -56,11 +57,12 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       </View>
 
       {/* 3. CẢNH BÁO KHOẢNG NGHỈ 10 PHÚT */}
-      {cooldown > 0 && (
+      {/* THÊM ĐIỀU KIỆN && dashboardStats.nextDose ĐỂ ẨN KHI HẾT LIỀU CUỐI */}
+      {cooldown > 0 && dashboardStats.nextDose && (
         <View style={styles.cooldownBanner}>
           <MaterialCommunityIcons name="timer-sand" size={28} color="#047857" />
           <Text style={styles.cooldownText}>
-            Khoảng nghỉ: Đợi {Math.floor(cooldown / 60)} phút {cooldown % 60 < 10 ? '0' : ''}{cooldown % 60} giây nữa.
+            Khoảng nghỉ: Đợi {Math.floor(cooldown / 60)} phút {cooldown % 60 < 10 ? '0' : ''}{cooldown % 60} giây nữa để dùng liều tiếp theo.
           </Text>
         </View>
       )}

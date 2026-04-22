@@ -45,9 +45,9 @@ export default function AddPatientMedScreen() {
   const reminderOptions = ['Bật', 'Tắt'];
 
   useEffect(() => {
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gidUsage = '530992649'; 
-    const gidMedicine = '512830173'; 
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+    const gidUsage = '1133416002'; 
+    const gidMedicine = '1532424446'; 
 
     Promise.all([
       fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidUsage}`).then(res => res.text()),
@@ -89,7 +89,7 @@ export default function AddPatientMedScreen() {
     }
 
     setLoading(true);
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
     const payload = { ...formData, Time: formData.Time.join(', '), Dose: `${formData.DoseAmount} ${formData.DoseUnit}` };
 

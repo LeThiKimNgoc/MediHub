@@ -48,8 +48,8 @@ export default function HomeScreen() {
   const fetchMedicines = (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true); 
 
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gid = '512830173'; 
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+    const gid = '1532424446'; 
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 
     fetch(csvUrl)
@@ -86,7 +86,7 @@ export default function HomeScreen() {
 
     const executeDelete = async () => {
       setLoading(true);
-      const scriptUrl = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
+      const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
       try {
         const response = await fetch(scriptUrl, {

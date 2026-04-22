@@ -51,10 +51,10 @@ export default function ReportScreen() {
   const fetchData = async () => {
     setLoading(true);
     setFetchError(false);
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gidLog = '1617086808'; 
-    const gidSynthetic = '141017476'; 
-    const gidIndividual = '638296200'; 
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+    const gidLog = '1373475002'; 
+    const gidSynthetic = '297712298'; 
+    const gidIndividual = '1749901529'; 
     
     const urlLog = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}`;
     const urlSynthetic = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}`;
