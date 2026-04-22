@@ -44,8 +44,8 @@ export default function AdminScreen() {
 
   const fetchStats = () => {
     setLoading(true);
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
-    const gidSynthetic = '141017476'; 
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+    const gidSynthetic = '297712298'; 
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}`;
 
     fetch(csvUrl)

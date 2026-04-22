@@ -25,8 +25,7 @@ if (Platform.OS !== 'web') {
   });
 }
 
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
-
+const SCRIPT_URL = '
 export default function PatientHomeScreen() {
   const params = useLocalSearchParams();
   const patientId = params.id as string;
@@ -67,7 +66,7 @@ export default function PatientHomeScreen() {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
       if (cachedMeds) { setMedications(JSON.parse(cachedMeds)); setLoading(false); } else setLoading(true);
     }
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU/export?format=csv&gid=1875494973&t=${new Date().getTime()}`;
+    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1875494973&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(async csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
@@ -86,7 +85,7 @@ export default function PatientHomeScreen() {
       const cachedHistory = await AsyncStorage.getItem(`@cached_history_${patientId}`);
       if (cachedHistory) setHistoryLogs(JSON.parse(cachedHistory)); else setLoadingHistory(true);
     }
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU/export?format=csv&gid=1617086808&t=${new Date().getTime()}`;
+    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1617086808&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
