@@ -4,13 +4,21 @@ import { useEffect } from 'react';
 
 export default function Layout() {
   useEffect(() => {
-    // 💥 VŨ KHÍ TỐI THƯỢNG: Tiêm Icon và ÉP ĐỔI TÊN TAB 💥
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       
-      // 🔥 ĐÂY RỒI: Lệnh ép trình duyệt đổi tên Tab ngay lập tức! 🔥
-      // Bạn có thể sửa chữ trong ngoặc kép thành bất cứ tên gì bạn thích nha
+      // 1. Ép tên Tab (Bạn đã có)
       document.title = "MediHub";
 
+      // 2. 🔥 VŨ KHÍ MỚI: Ép trình duyệt hiểu đây là tiếng Việt
+      document.documentElement.lang = 'vi';
+
+      // 3. 🔥 VŨ KHÍ MỚI: Gắn thẻ meta "Cấm dịch" vào đầu trang
+      const meta = document.createElement('meta');
+      meta.name = 'google';
+      meta.content = 'notranslate';
+      document.head.appendChild(meta);
+
+      // 4. Tiêm Icon (Bạn đã có)
       const style = document.createElement('style');
       style.textContent = `
         @font-face {
