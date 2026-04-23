@@ -66,7 +66,8 @@ export default function PatientHomeScreen() {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
       if (cachedMeds) { setMedications(JSON.parse(cachedMeds)); setLoading(false); } else setLoading(true);
     }
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1875494973&t=${new Date().getTime()}`;
+    // 🔥 ĐÃ SỬA: GID CỦA TAB REMIND MỚI (2073748495) 🔥
+    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=2073748495&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(async csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
@@ -85,7 +86,8 @@ export default function PatientHomeScreen() {
       const cachedHistory = await AsyncStorage.getItem(`@cached_history_${patientId}`);
       if (cachedHistory) setHistoryLogs(JSON.parse(cachedHistory)); else setLoadingHistory(true);
     }
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1617086808&t=${new Date().getTime()}`;
+    // 🔥 ĐÃ SỬA: GID CỦA TAB LOG MỚI (1373475002) 🔥
+    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1373475002&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,

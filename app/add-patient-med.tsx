@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Modal, Platform, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -59,7 +58,7 @@ export default function AddPatientMedScreen() {
     }).catch(e => setLoadingData(false));
   }, []);
 
-  const handleSelectMedicine = (med) => {
+  const handleSelectMedicine = (med: any) => {
     let autoUnit = formData.DoseUnit;
     let autoAmount = formData.DoseAmount;
     const useText = med.use ? med.use.toLowerCase() : '';
@@ -73,8 +72,8 @@ export default function AddPatientMedScreen() {
     setMedicinePickerVisible(false);
   };
 
-  const handleChange = (name, value) => setFormData({ ...formData, [name]: value });
-  const removeTime = (t) => setFormData({ ...formData, Time: formData.Time.filter(x => x !== t) });
+  const handleChange = (name: string, value: any) => setFormData({ ...formData, [name]: value });
+  const removeTime = (t: string) => setFormData({ ...formData, Time: formData.Time.filter(x => x !== t) });
   
   const addCustomTime = () => {
     const newTime = `${selectedHour}:${selectedMinute}`;
@@ -82,6 +81,7 @@ export default function AddPatientMedScreen() {
     setTimePickerVisible(false); 
   };
 
+  // 🔥 HÀM GỬI DỮ LIỆU ĐÃ ĐƯỢC CHUẨN HÓA 🔥
   const submitData = async () => {
     if (!formData.MedicineName || formData.Time.length === 0 || !formData.DoseAmount) {
       Alert.alert('Lỗi nhập liệu', 'Vui lòng Chọn Thuốc, Chọn ít nhất 1 khung giờ và nhập Liều lượng!');
@@ -89,13 +89,24 @@ export default function AddPatientMedScreen() {
     }
 
     setLoading(true);
+    // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
-    const payload = { ...formData, Time: formData.Time.join(', '), Dose: `${formData.DoseAmount} ${formData.DoseUnit}` };
+    // Bọc dữ liệu vào trong data và dán nhãn action là 'addRemind'
+    const payload = { 
+      action: 'addRemind', 
+      data: {
+        ...formData, 
+        Time: formData.Time.join(', '), 
+        Dose: `${formData.DoseAmount} ${formData.DoseUnit}`
+      }
+    };
 
     try {
       const response = await fetch(scriptUrl, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
+        method: 'POST', 
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+        body: JSON.stringify(payload)
       });
       const textResult = await response.text();
       try {
@@ -133,7 +144,7 @@ export default function AddPatientMedScreen() {
         </View>
       </Modal>
 
-      {/* MODAL CHỌN GIỜ (CÓ HỖ TRỢ LĂN CHUỘT TRÊN WEB) */}
+      {/* MODAL CHỌN GIỜ */}
       <Modal visible={isTimePickerVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -194,7 +205,7 @@ export default function AddPatientMedScreen() {
       <View style={styles.appHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} /></TouchableOpacity>
         
-        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
+        {/* Lô-gô xịn xò của bạn */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
         </View>
@@ -292,7 +303,6 @@ const styles = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 15, elevation: 4 },
   backButton: { marginRight: 15, padding: 5 }, 
   
-  // 🔥 Thêm Style cho Logo trên Header 🔥
   logoCircleHeader: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.headerText }, subTitle: { fontSize: 14, color: colors.headerText, opacity: 0.8 },

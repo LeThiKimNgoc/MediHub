@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,9 +14,9 @@ export default function EditMedicineScreen() {
   // Nhận dữ liệu cũ từ trang chủ truyền sang
   const params = useLocalSearchParams();
   
+  // ĐÃ SỬA: Gom formData lại cho chuẩn, bỏ action ra ngoài
   const [formData, setFormData] = useState({
-    action: 'update', // Báo cho Google Sheet biết đây là lệnh sửa
-    id: params.ID || '',
+    ID: params.ID || '',
     MedicineName: params.MedicineName || '',
     ActiveIngredient: params.ActiveIngredient || '',
     PackingSpecifications: params.PackingSpecifications || '',
@@ -28,7 +27,7 @@ export default function EditMedicineScreen() {
   const usageOptions = ['Uống', 'Nhỏ mắt', 'Tra mắt', 'Dùng ngoài'];
   const noteOptions = ['Thuốc kê đơn', 'Thuốc không kê đơn'];
 
-  const handleChange = (name, value) => { setFormData({ ...formData, [name]: value }); };
+  const handleChange = (name: string, value: string) => { setFormData({ ...formData, [name]: value }); };
 
   const submitData = async () => {
     if (!formData.MedicineName) {
@@ -37,21 +36,41 @@ export default function EditMedicineScreen() {
     }
 
     setLoading(true);
-    // 🔥 ĐIỀN ĐƯỜNG LINK WEB APP URL VÀO ĐÂY:
+    // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+    
+    // 🔥 ĐÃ SỬA: Chuẩn hóa gói dữ liệu gửi đi 🔥
+    const payload = {
+      action: 'editMedicine',
+      data: formData
+    };
+
     try {
       const response = await fetch(scriptUrl, {
         method: 'POST',
-        body: JSON.stringify(formData),
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Ép thành text/plain để chống lỗi CORS
+        body: JSON.stringify(payload)
       });
-      const result = await response.json();
+      
+      const textResult = await response.text();
+      let result;
+      try {
+        result = JSON.parse(textResult);
+      } catch (e) {
+        throw new Error('Lỗi Server: ' + textResult.substring(0, 50));
+      }
+
       if (result.status === 'success') {
         Alert.alert('Thành công', 'Đã cập nhật thông tin thuốc!');
         router.back(); 
-      } else { Alert.alert('Lỗi', 'Không thể lưu dữ liệu.'); }
-    } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối.'); } 
-    finally { setLoading(false); }
+      } else { 
+        Alert.alert('Lỗi', result.message || 'Không thể lưu dữ liệu.'); 
+      }
+    } catch (error) { 
+      Alert.alert('Lỗi mạng', 'Không thể kết nối.'); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -61,7 +80,6 @@ export default function EditMedicineScreen() {
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.warning} />
         </TouchableOpacity>
 
-        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
         </View>
@@ -70,6 +88,7 @@ export default function EditMedicineScreen() {
       </View>
 
       <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
+        {/* Có thể thêm ID hiển thị mờ giống bên Patient nếu muốn */}
         <View style={styles.inputGroup}><Text style={styles.label}>Tên Thuốc (*)</Text><TextInput style={styles.input} value={formData.MedicineName} onChangeText={(text) => handleChange('MedicineName', text)} /></View>
         <View style={styles.inputGroup}><Text style={styles.label}>Hoạt Chất</Text><TextInput style={styles.input} value={formData.ActiveIngredient} onChangeText={(text) => handleChange('ActiveIngredient', text)} /></View>
         <View style={styles.inputGroup}><Text style={styles.label}>Quy Cách Đóng Gói</Text><TextInput style={styles.input} value={formData.PackingSpecifications} onChangeText={(text) => handleChange('PackingSpecifications', text)} /></View>
@@ -110,7 +129,6 @@ const styles = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 15, elevation: 4 },
   backButton: { marginRight: 15, padding: 5 }, 
   
-  // 🔥 Thêm Style cho Logo trên Header 🔥
   logoCircleHeader: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   
   headerTitle: { fontSize: 22, fontWeight: 'bold' },

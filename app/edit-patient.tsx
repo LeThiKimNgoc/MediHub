@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,21 +16,19 @@ export default function EditPatientScreen() {
   // Nhận dữ liệu cũ từ trang danh sách truyền sang
   const params = useLocalSearchParams();
   
+  // ĐÃ SỬA: Gom gọn formData chỉ chứa dữ liệu bệnh nhân
   const [formData, setFormData] = useState({
-    action: 'update',
-    sheetName: 'Patients', 
-    id: params.PatientID || '', // Dùng PatientID làm key để báo cho Google Sheet biết cần sửa dòng nào
     PatientID: params.PatientID || '',
     Name: params.Name || '',
     Age: params.Age || '',
     Gender: params.Gender || 'Nam',
     ICD: params.ICD || '',
-    DayStart: params.DayStart || '' // Giữ nguyên ngày khám cũ
+    DayStart: params.DayStart || '' 
   });
 
   const genderOptions = ['Nam', 'Nữ', 'Khác'];
 
-  const handleChange = (name, value) => { setFormData({ ...formData, [name]: value }); };
+  const handleChange = (name: string, value: string) => { setFormData({ ...formData, [name]: value }); };
 
   const submitData = async () => {
     if (!formData.Name || !formData.Age) {
@@ -40,29 +37,42 @@ export default function EditPatientScreen() {
     }
 
     setLoading(true);
-    // 🔥 ĐIỀN ĐƯỜNG LINK WEB APP URL CỦA BẠN VÀO ĐÂY:
+    
+    // Đường link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+    
+    // 🔥 ĐÃ SỬA: Bọc gói dữ liệu đúng chuẩn của Mã.gs 🔥
+    const payload = {
+      action: 'editPatient',
+      data: formData
+    };
+
     try {
       const response = await fetch(scriptUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(formData)
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Ép kiểu text/plain chống lỗi CORS
+        body: JSON.stringify(payload)
       });
       
       const textResult = await response.text();
-      const result = JSON.parse(textResult);
+      let result;
+      try {
+        result = JSON.parse(textResult);
+      } catch (jsonError) {
+        throw new Error('Lỗi từ Server: ' + textResult.substring(0, 50));
+      }
         
       if (result.status === 'success') {
         setToastVisible(true);
         setTimeout(() => {
           setToastVisible(false);
-          router.back(); // Sửa xong, hiện thông báo 1.5 giây rồi tự động lùi về danh sách
+          router.back(); 
         }, 1500);
       } else {
-        Alert.alert('Lỗi', result.message || 'Không thể lưu dữ liệu.');
+        Alert.alert('Lỗi hệ thống', result.message || 'Không thể lưu dữ liệu.');
       }
     } catch (error) {
-      Alert.alert('Lỗi mạng', 'Không thể kết nối.');
+      Alert.alert('Lỗi mạng', 'Không thể kết nối với máy chủ.');
     } finally {
       setLoading(false);
     }
@@ -82,7 +92,6 @@ export default function EditPatientScreen() {
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.warning} />
         </TouchableOpacity>
         
-        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
         </View>
@@ -140,7 +149,6 @@ const styles = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, paddingHorizontal: 15, elevation: 4 }, 
   backButton: { marginRight: 15, padding: 5 }, 
   
-  // 🔥 Thêm Style cho Logo trên Header 🔥
   logoCircleHeader: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   
   headerTitle: { fontSize: 22, fontWeight: 'bold' },

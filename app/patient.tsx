@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TextInput, TouchableOpacity, Alert, useWindowDimensions, Platform, RefreshControl, Modal, KeyboardAvoidingView, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,7 +10,7 @@ const colors = {
   tableHeader: '#FFE0B2', textLight: '#78909C', dangerPastel: '#FFCDD2', dangerText: '#D32F2F',
   warningPastel: '#FFF9C4', warningText: '#F57F17', successPastel: '#E8F5E9',
   successText: '#2E7D32', infoBadgeBg: '#E3F2FD', infoBadgeText: '#1565C0',
-  zoomBtnBg: '#EA580C' // Nút Zoom màu Cam cho đồng bộ trang Bệnh Nhân
+  zoomBtnBg: '#EA580C' 
 };
 
 export default function PatientScreen() {
@@ -21,7 +20,6 @@ export default function PatientScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // 🔥 BIẾN QUẢN LÝ MÀN HÌNH VÀ THU PHÓNG 🔥
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; 
   const isMobile = width < 768;
@@ -51,7 +49,7 @@ export default function PatientScreen() {
   
   const [tempPrescription, setTempPrescription] = useState<any[]>([]);
   const [assignForm, setAssignForm] = useState({ 
-    medName: '', dosageValue: '', dosageUnit: 'viên', usageMethod: 'Uống sau ăn', times: [], totalQty: '', reminder: true 
+    medName: '', dosageValue: '', dosageUnit: 'viên', usageMethod: 'Uống sau ăn', times: [] as string[], totalQty: '', reminder: true 
   });
   
   const [showMedDropdown, setShowMedDropdown] = useState(false);
@@ -59,9 +57,9 @@ export default function PatientScreen() {
   
   const [timeValue, setTimeValue] = useState('');
 
-  const idRef = useRef(null); const nameRef = useRef(null); const ageRef = useRef(null); const icdRef = useRef(null); const dateRef = useRef(null);
-  const editNameRef = useRef(null); const editAgeRef = useRef(null); const editIcdRef = useRef(null); const editDateRef = useRef(null);
-  const timeRef = useRef(null); const dosageRef = useRef(null); const methodRef = useRef(null); const qtyRef = useRef(null);    
+  const idRef = useRef<TextInput>(null); const nameRef = useRef<TextInput>(null); const ageRef = useRef<TextInput>(null); const icdRef = useRef<TextInput>(null); const dateRef = useRef<TextInput>(null);
+  const editNameRef = useRef<TextInput>(null); const editAgeRef = useRef<TextInput>(null); const editIcdRef = useRef<TextInput>(null); const editDateRef = useRef<TextInput>(null);
+  const timeRef = useRef<TextInput>(null); const dosageRef = useRef<TextInput>(null); const methodRef = useRef<TextInput>(null); const qtyRef = useRef<TextInput>(null);    
 
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
@@ -69,9 +67,11 @@ export default function PatientScreen() {
     if (!isRefreshing) setLoading(true); 
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     
+    // 🔥 ĐÃ SỬA: Thêm thần chú chống Cache 🔥
+    const t = new Date().getTime();
     Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`).then(res => res.text()),
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=512830173`).then(res => res.text())
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0&t=${t}`, { cache: 'no-store' }).then(res => res.text()),
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=1532424446&t=${t}`, { cache: 'no-store' }).then(res => res.text())
     ]).then(([csvPatients, csvMeds]) => {
       Papa.parse(csvPatients, { header: true, skipEmptyLines: true, complete: (res) => { setPatients(res.data); } });
       Papa.parse(csvMeds, { header: true, skipEmptyLines: true, complete: (res) => { setMedicines(res.data); } });
@@ -86,7 +86,8 @@ export default function PatientScreen() {
     const exec = async () => {
       setLoading(true);
       try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete', id: id, sheetName: 'Patients' }) });
+        // 🔥 ĐÃ SỬA: Đổi action thành deletePatient 🔥
+        const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'deletePatient', id: id }) });
         const result = await res.json();
         if (result.status === 'success') { fetchData(); Alert.alert('Thành công', 'Đã xóa hồ sơ.'); }
       } catch(e) { Alert.alert('Lỗi mạng', 'Không thể xóa'); } finally { setLoading(false); }
@@ -105,7 +106,8 @@ export default function PatientScreen() {
     const date = addForm.dateMode === 'auto' ? new Date().toLocaleDateString('vi-VN') : addForm.dayStart;
     
     try {
-      const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'add', sheetName: 'Patients', data: { PatientID: addForm.id, Name: addForm.name, Age: addForm.age, Gender: addForm.gender, ICD: addForm.icd, DayStart: date } }) });
+      // 🔥 ĐÃ SỬA: Đổi action thành addPatient 🔥
+      const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'addPatient', data: { PatientID: addForm.id, Name: addForm.name, Age: addForm.age, Gender: addForm.gender, ICD: addForm.icd, DayStart: date } }) });
       const result = await res.json();
       
       if (result.status === 'success') { 
@@ -124,7 +126,8 @@ export default function PatientScreen() {
   const handleEditSubmit = async () => {
     if (!editForm.id || !editForm.name) { if (Platform.OS === 'web') window.alert('Thiếu Mã BN/Tên.'); else Alert.alert('Lỗi', 'Thiếu Mã BN/Tên.'); return; }
     setIsSubmitting(true);
-    const payload = { action: 'edit', sheetName: 'Patients', id: editForm.id, data: { PatientID: editForm.id, Name: editForm.name, Age: editForm.age, Gender: editForm.gender, ICD: editForm.icd, DayStart: editForm.dayStart } };
+    // 🔥 ĐÃ SỬA: Đổi action thành editPatient và bỏ sheetName dư thừa 🔥
+    const payload = { action: 'editPatient', data: { PatientID: editForm.id, Name: editForm.name, Age: editForm.age, Gender: editForm.gender, ICD: editForm.icd, DayStart: editForm.dayStart } };
     try {
       const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
       const result = await res.json();
@@ -148,7 +151,8 @@ export default function PatientScreen() {
     setIsSubmitting(true); let successCount = 0;
     try {
       for (const med of tempPrescription) {
-        const payload = { action: 'add', sheetName: 'Remind', data: { PatientsID: selectedPatient.PatientID, MedicineName: med.medName, Time: med.times.join(', '), Reminder_mode: med.reminder ? 'Bật' : 'Tắt', Status: 'Chưa sử dụng', Usage: med.usageMethod, Quantity: med.totalQty, Dose: `${med.dosageValue} ${med.dosageUnit}` } };
+        // 🔥 ĐÃ SỬA: Đổi action thành addRemind 🔥
+        const payload = { action: 'addRemind', data: { PatientsID: selectedPatient.PatientID, MedicineName: med.medName, Time: med.times.join(', '), Reminder_mode: med.reminder ? 'Bật' : 'Tắt', Status: 'Chưa sử dụng', Usage: med.usageMethod, Quantity: med.totalQty, Dose: `${med.dosageValue} ${med.dosageUnit}` } };
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
         const textResult = await res.text(); let jsonResult;
         try { jsonResult = JSON.parse(textResult); } catch (err) { throw new Error('Lỗi Server'); }
@@ -158,7 +162,7 @@ export default function PatientScreen() {
         if (Platform.OS === 'web') window.alert(`Đã gán ${successCount} thuốc cho ${selectedPatient.Name}.`); else Alert.alert('Hoàn tất!', `Đã gán ${successCount} thuốc cho ${selectedPatient.Name}.`);
         setTempPrescription([]); setActiveModal(null); 
       }
-    } catch (error) { if (Platform.OS === 'web') window.alert('Lỗi: ' + error.message); else Alert.alert('Lỗi', error.message); } 
+    } catch (error: any) { if (Platform.OS === 'web') window.alert('Lỗi: ' + error.message); else Alert.alert('Lỗi', error.message); } 
     finally { setIsSubmitting(false); }
   };
 
@@ -168,7 +172,7 @@ export default function PatientScreen() {
     setShowScanner(true);
   };
 
-  const handleBarcodeScanned = ({ type, data }) => {
+  const handleBarcodeScanned = ({ type, data }: any) => {
     setShowScanner(false); const scannedId = data.trim(); setSearchQuery(scannedId); 
     const isExist = patients.some(pt => (pt.PatientID || '').toString().toLowerCase() === scannedId.toLowerCase());
     if (!isExist) {
@@ -198,7 +202,6 @@ export default function PatientScreen() {
     }
   };
 
-  // 🔥 TÍNH TOÁN KÍCH THƯỚC ĐỘNG DỰA VÀO CHẾ ĐỘ THU PHÓNG 🔥
   const fSize = isMobile && !isZoomed ? 10 : 14; 
   const padV = isMobile && !isZoomed ? 8 : 16;   
   const padH = isMobile && !isZoomed ? 4 : 12;
@@ -237,7 +240,7 @@ export default function PatientScreen() {
           
           <Text style={[styles.dataCell, isMobile && isZoomed ? { width: 40 } : { flex: 0.5 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, textAlign: 'center', color: colors.textLight }]}>{index + 1}</Text>
           
-          <TouchableOpacity style={[styles.dataCell, isMobile && isZoomed ? { width: 100 } : { flex: 1.2 }, { paddingVertical: padV, paddingHorizontal: padH, justifyContent: 'center', alignItems: 'center' }]} onPress={() => router.push({ pathname: '/patient-meds', params: { id: item.PatientID, name: item.Name } })}>
+          <TouchableOpacity style={[styles.dataCell, isMobile && isZoomed ? { width: 100 } : { flex: 1.2 }, { paddingVertical: padV, paddingHorizontal: padH, justifyContent: 'center', alignItems: 'center' }]} onPress={() => router.push({ pathname: '/patient-meds', params: { id: item.PatientID, name: item.Name } } as any)}>
             <View style={[styles.patientIdBadge, isMobile && !isZoomed && { paddingVertical: 4, paddingHorizontal: 6 }]}><Text style={[styles.patientIdText, {fontSize: fSize - 1}]}>{item.PatientID}</Text></View>
           </TouchableOpacity>
           
@@ -256,7 +259,6 @@ export default function PatientScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* 🔥 GIAO DIỆN CAMERA QUÉT QR 🔥 */}
         {showScanner && Platform.OS !== 'web' && (
           <Modal visible={showScanner} animationType="slide" transparent={false}>
             <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -281,13 +283,11 @@ export default function PatientScreen() {
           </Modal>
         )}
 
-        {/* --- HEADER CHỐNG ĐÈ CHỮ --- */}
         {isMobile ? (
           <View style={[styles.header, styles.headerMobile]}>
              <View style={styles.headerTopRowMobile}>
                <View style={styles.brandBoxMobile}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
                     <View style={styles.logoCircleMobile}>
                         <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
                     </View>
@@ -313,7 +313,6 @@ export default function PatientScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
                     <View style={styles.logoCircle}>
                         <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
                     </View>
@@ -347,6 +346,7 @@ export default function PatientScreen() {
               placeholder="Tìm mã BN hoặc tên bệnh nhân..." 
               value={searchQuery} 
               onChangeText={setSearchQuery} 
+              outlineStyle="none" // Chống viền xanh khó chịu trên Web
             />
             <TouchableOpacity style={styles.scanBtn} onPress={handleOpenScanner}>
               <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.white} />
@@ -358,7 +358,6 @@ export default function PatientScreen() {
               <Text style={styles.sectionTitle}>Danh Sách Bệnh Nhân</Text>
             </View>
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
-              {/* NÚT THU PHÓNG */}
               {isMobile && (
                 <TouchableOpacity 
                   onPress={() => setIsZoomed(!isZoomed)} 
@@ -380,7 +379,6 @@ export default function PatientScreen() {
             <View style={styles.centerContainer}><ActivityIndicator size="large" color={colors.headerBgPastel} /><Text style={styles.loadingText}>Đang tải dữ liệu...</Text></View>
           ) : (
             <View style={styles.tableWrapper}>
-              {/* Nếu đang bật Zoom trên Điện thoại thì dùng ScrollView ngang, còn lại hiển thị Full 100% */}
               {isMobile && isZoomed ? (
                 <ScrollView horizontal={true} showsHorizontalScrollIndicator={true}>
                   <View style={{ width: 1000, flex: 1, backgroundColor: colors.white }}> 
@@ -400,7 +398,6 @@ export default function PatientScreen() {
           <MaterialCommunityIcons name="account-plus" size={30} color="#fff" />
         </TouchableOpacity>
 
-        {/* MODAL THÊM, SỬA, GÁN (GIỮ NGUYÊN 100%) */}
         <Modal visible={showAddModal} animationType="slide" transparent={true}>
           <View style={styles.modalOverlay}><View style={[styles.modalContainer, { width: isDesktop ? 600 : '95%' }]}>
             <View style={styles.modalHeaderAdd}><TouchableOpacity onPress={() => setShowAddModal(false)}><MaterialCommunityIcons name="arrow-left" size={26} color={colors.carbonDark} /></TouchableOpacity><Text style={styles.modalTitleAdd}>Thêm Hồ Sơ Bệnh Nhân</Text><View style={{width: 26}} /></View>
@@ -495,7 +492,7 @@ export default function PatientScreen() {
                     <View style={styles.dropdownBox}>
                       <View style={styles.dropdownSearch}>
                         <MaterialCommunityIcons name="magnify" size={20} color="#9CA3AF" />
-                        <TextInput style={styles.dropdownInput} placeholder="Tìm nhanh tên thuốc..." value={medSearchQuery} onChangeText={setMedSearchQuery} />
+                        <TextInput style={styles.dropdownInput} placeholder="Tìm nhanh tên thuốc..." value={medSearchQuery} onChangeText={setMedSearchQuery} outlineStyle="none" />
                       </View>
                       <ScrollView style={{maxHeight: 200}} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                         {filteredMeds.map((med, idx) => (
@@ -543,6 +540,7 @@ export default function PatientScreen() {
                     placeholder="Vd: 08:30" 
                     value={timeValue} 
                     onChangeText={setTimeValue} 
+                    outlineStyle="none"
                     onSubmitEditing={() => {
                       if(timeValue.trim()) {
                         let formattedTime = timeValue.trim();
@@ -590,6 +588,7 @@ export default function PatientScreen() {
                     onSubmitEditing={() => methodRef.current?.focus()} 
                     blurOnSubmit={false}
                     returnKeyType="next"
+                    outlineStyle="none"
                   />
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {['giọt','viên','lọ','ống','nhát xịt','ml','cm','cái'].map(u => (
@@ -610,6 +609,7 @@ export default function PatientScreen() {
                   onSubmitEditing={() => qtyRef.current?.focus()} 
                   blurOnSubmit={false}
                   returnKeyType="next"
+                  outlineStyle="none"
                 />
                 <View style={{flexDirection:'row', flexWrap:'wrap', gap:8}}>
                   {['Uống sau ăn','Uống trước ăn 60 phút','Nhỏ mắt TRÁI','Nhỏ mắt PHẢI','Tra mắt TRÁI','Tra mắt PHẢI','Dùng ngoài','Lau bờ mi','Chườm ấm mắt'].map(m => (
@@ -640,6 +640,7 @@ export default function PatientScreen() {
                       onChangeText={(t)=>setAssignForm({...assignForm, totalQty:t})} 
                       onSubmitEditing={handleAddToTemp} 
                       returnKeyType="done"
+                      outlineStyle="none"
                     />
                   </View>
                   <View style={{alignItems:'center'}}><Text style={styles.fieldLabel}>Nhắc nhở (App)</Text>
@@ -693,7 +694,6 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   brandBox: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', flexDirection: 'row', alignItems: 'center' },
   
-  // 🔥 ĐÃ THAY NỀN TRẮNG CHO LOGO PC 🔥
   brandRow: { flexDirection: 'row', alignItems: 'center' }, logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   brandMedi: { fontSize: 30, fontWeight: '600', color: '#FFFFFF', marginLeft: 12, letterSpacing: 1, fontStyle: 'italic' },
   brandHub: { fontWeight: '900', color: '#FFFFFF' },
@@ -709,14 +709,12 @@ const styles = StyleSheet.create({
   headerTopRowMobile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBoxMobile: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)' },
   
-  // 🔥 LOGO MOBILE ĐÃ SẴN NỀN TRẮNG 🔥
   logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
   brandMediMobile: { fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginLeft: 10, fontStyle: 'italic' }, brandHubMobile: { fontWeight: '900' },
   headerIconBtnMobile: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   headerBottomRowMobile: { marginTop: 15, alignItems: 'center' },
   pageTitleMobile: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2 },
 
-  // 🔥 LỖI Ở ĐÂY NÀY, ĐÃ THÊM LẠI flex: 1 CHO NÓ BUNG RA 🔥
   contentContainer: { flex: 1, paddingHorizontal: '2%', paddingBottom: 10, width: '100%' },
   
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 16, paddingLeft: 15, marginBottom: 15, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },

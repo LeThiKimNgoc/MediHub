@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,20 +6,18 @@ import { router } from 'expo-router';
 export default function AddMedicineScreen() {
   const [loading, setLoading] = useState(false);
   
-  // Nơi lưu trữ dữ liệu
   const [formData, setFormData] = useState({
     MedicineName: '',
     ActiveIngredient: '',
     PackingSpecifications: '',
-    Use: 'Uống', // Mặc định
-    Note: 'Thuốc kê đơn' // ĐÃ CẬP NHẬT: Mặc định là thuốc kê đơn
+    Use: 'Uống',
+    Note: 'Thuốc kê đơn' 
   });
 
-  // Danh sách các tùy chọn cài sẵn
   const usageOptions = ['Uống', 'Nhỏ mắt', 'Tra mắt', 'Dùng ngoài'];
-  const noteOptions = ['Thuốc kê đơn', 'Thuốc không kê đơn']; // ĐÃ CẬP NHẬT: Danh sách phân loại thuốc
+  const noteOptions = ['Thuốc kê đơn', 'Thuốc không kê đơn']; 
 
-  const handleChange = (name, value) => {
+  const handleChange = (name: string, value: string) => {
     setFormData({ ...formData, [name]: value });
   };
 
@@ -32,23 +29,35 @@ export default function AddMedicineScreen() {
 
     setLoading(true);
     
-    // 🔥 ĐIỀN ĐƯỜNG LINK WEB APP URL CỦA BẠN VÀO ĐÂY:
+    // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+
+    // 🔥 ĐÃ SỬA LẠI CẤU TRÚC GỬI DỮ LIỆU ĐỂ KHỚP VỚI MÃ.GS 🔥
+    const payload = {
+      action: 'addMedicine', // Nhãn hiệu để phân loại
+      data: formData
+    };
 
     try {
       const response = await fetch(scriptUrl, {
         method: 'POST',
-        body: JSON.stringify(formData),
-        headers: { 'Content-Type': 'application/json' }
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' } // Cần dùng text/plain để tránh lỗi CORS
       });
       
-      const result = await response.json();
+      const textResult = await response.text();
+      let result;
+      try {
+        result = JSON.parse(textResult);
+      } catch (jsonError) {
+        throw new Error('Lỗi Server: ' + textResult.substring(0, 50));
+      }
       
       if (result.status === 'success') {
         Alert.alert('Thành công!', 'Đã thêm thuốc mới vào hệ thống.');
         router.back(); 
       } else {
-        Alert.alert('Lỗi', 'Không thể lưu dữ liệu, vui lòng thử lại.');
+        Alert.alert('Lỗi', result.message || 'Không thể lưu dữ liệu.');
       }
     } catch (error) {
       console.error(error);
@@ -65,7 +74,6 @@ export default function AddMedicineScreen() {
           <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
         </TouchableOpacity>
         
-        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
         </View>
@@ -91,7 +99,6 @@ export default function AddMedicineScreen() {
           <TextInput style={styles.input} placeholder="Vd: Lọ 15ml" value={formData.PackingSpecifications} onChangeText={(text) => handleChange('PackingSpecifications', text)} />
         </View>
 
-        {/* --- PHẦN CHỌN CÁCH DÙNG (CÀI SẴN) --- */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Cách Dùng</Text>
           <View style={styles.chipsContainer}>
@@ -116,7 +123,6 @@ export default function AddMedicineScreen() {
           </View>
         </View>
 
-        {/* --- PHẦN CHỌN LƯU Ý / PHÂN LOẠI (CÀI SẴN) --- */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phân Loại Thuốc (Lưu ý)</Text>
           <View style={styles.chipsContainer}>
@@ -125,7 +131,7 @@ export default function AddMedicineScreen() {
                 key={index}
                 style={[
                   styles.chip,
-                  formData.Note === option ? styles.noteChipSelected : null // Đổi màu khác một chút cho dễ phân biệt
+                  formData.Note === option ? styles.noteChipSelected : null
                 ]}
                 onPress={() => handleChange('Note', option)}
                 activeOpacity={0.7}
@@ -162,7 +168,6 @@ const styles = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0056b3', paddingVertical: 18, paddingHorizontal: 15, elevation: 5 },
   backButton: { marginRight: 15, padding: 5 },
   
-  // 🔥 Thêm Style cho Logo trên Header 🔥
   logoCircleHeader: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
@@ -187,11 +192,11 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   chipSelected: {
-    backgroundColor: '#0284c7', // Xanh biển cho Cách dùng
+    backgroundColor: '#0284c7', 
     borderColor: '#0284c7',
   },
   noteChipSelected: {
-    backgroundColor: '#059669', // Xanh lá cây cho Phân loại thuốc (để dễ phân biệt)
+    backgroundColor: '#059669', 
     borderColor: '#059669',
   },
   chipText: {

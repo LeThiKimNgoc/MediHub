@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from 'react';
-// 🔥 Bác sĩ đã gọi thêm cỗ máy in ảnh 'Image' vào đây 🔥
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, useWindowDimensions, Platform, ScrollView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -46,9 +45,11 @@ export default function AdminScreen() {
     setLoading(true);
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     const gidSynthetic = '297712298'; 
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}`;
+    
+    // 🔥 ĐÃ THÊM THẦN CHÚ CHỐNG LƯU CACHE Ở CUỐI LINK 🔥
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}&t=${new Date().getTime()}`;
 
-    fetch(csvUrl)
+    fetch(csvUrl, { cache: 'no-store' }) // Thêm cache: 'no-store' cho chắc ăn 100%
       .then(res => res.text())
       .then(csvText => {
         Papa.parse(csvText, {
@@ -95,7 +96,6 @@ export default function AdminScreen() {
             <View style={styles.headerTopRowMobile}>
               <View style={styles.brandBoxMobile}>
                 <View style={styles.brandRow}>
-                  {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
                   <View style={styles.logoCircleMobile}>
                     <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
                   </View>
@@ -115,7 +115,6 @@ export default function AdminScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
                     <View style={styles.logoCircle}>
                       <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
                     </View>
@@ -271,7 +270,6 @@ const styles = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
   headerLeft: { flex: 1, alignItems: 'flex-start' }, brandBox: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', flexDirection: 'row', alignItems: 'center' }, brandRow: { flexDirection: 'row', alignItems: 'center' }, 
   
-  // 🔥 Đã đổi hình nền logo thành TẮNG (#FFFFFF) để tôn lên logo Xanh lá 🔥
   logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }, 
   logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }, 
   

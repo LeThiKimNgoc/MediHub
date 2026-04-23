@@ -7,17 +7,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const colors = {
-  bg: '#F8FAFC',
-  brandPrimary: '#0F766E',   
-  brandSecondary: '#14B8A6', 
-  headerText: '#0F172A',
-  cardBg: '#FFFFFF',
-  textDark: '#1E293B',
-  textLight: '#64748B',
-  actionBlack: '#1E293B',  
-  actionTeal: '#0F766E',   
-  white: '#FFFFFF',
-  secondary: '#E0F2FE'
+  bg: '#F8FAFC', brandPrimary: '#0F766E', brandSecondary: '#14B8A6', headerText: '#0F172A',
+  cardBg: '#FFFFFF', textDark: '#1E293B', textLight: '#64748B', actionBlack: '#1E293B',  
+  actionTeal: '#0F766E', white: '#FFFFFF', secondary: '#E0F2FE'
 };
 
 export default function LoginScreen() {
@@ -26,12 +18,11 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isCheckingMemory, setIsCheckingMemory] = useState(true); // 🔥 Biến kiểm tra trí nhớ lúc mới mở App
+  const [isCheckingMemory, setIsCheckingMemory] = useState(true);
 
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
-  // 🔥 KIỂM TRA BỘ NHỚ NGAY KHI MỞ APP 🔥
   useEffect(() => {
     const checkAutoLogin = async () => {
       try {
@@ -39,10 +30,8 @@ export default function LoginScreen() {
         const savedName = await AsyncStorage.getItem('patientName');
         
         if (savedId && savedName) {
-          // Nếu đã từng đăng nhập, bay thẳng vào trong luôn!
-          router.replace({ pathname: '/patient-home', params: { id: savedId, name: savedName } });
+          router.replace({ pathname: '/patient-home', params: { id: savedId, name: savedName } } as any);
         } else {
-          // Nếu chưa, hiện form đăng nhập
           setIsCheckingMemory(false);
         }
       } catch (error) {
@@ -61,9 +50,11 @@ export default function LoginScreen() {
 
     setLoading(true);
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+    
+    // Thêm thần chú chống lưu cache
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0&t=${new Date().getTime()}`;
 
-    fetch(csvUrl)
+    fetch(csvUrl, { cache: 'no-store' })
       .then(res => res.text())
       .then(csvText => {
         Papa.parse(csvText, {
@@ -73,12 +64,9 @@ export default function LoginScreen() {
             setLoading(false);
             if (patient) {
               setPatientId(''); 
-              
-              // 🔥 LƯU VÀO BỘ NHỚ SÂU ĐỂ LẦN SAU KHÔNG CẦN NHẬP NỮA 🔥
               await AsyncStorage.setItem('patientId', patient.PatientID);
               await AsyncStorage.setItem('patientName', patient.Name);
-              
-              router.replace({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } });
+              router.replace({ pathname: '/patient-home', params: { id: patient.PatientID, name: patient.Name } } as any);
             } else {
               Alert.alert('Lỗi đăng nhập', 'Không tìm thấy Mã Bệnh Nhân này trên hệ thống.');
             }
@@ -91,22 +79,42 @@ export default function LoginScreen() {
       });
   };
 
-  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN ---
-  const handleAdminLogin = () => {
+  // --- 2. XỬ LÝ ĐĂNG NHẬP ADMIN BẰNG API GOOGLE SHEET ---
+  const handleAdminLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      window.alert('Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
+      if (Platform.OS === 'web') window.alert('Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
+      else Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ Tài khoản và Mật khẩu.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (username === 'admin' && password === '123456') {
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+    
+    // Gọi lệnh login qua phương thức GET (đã được định nghĩa trong Mã.gs của bạn)
+    const urlWithParams = `${scriptUrl}?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+
+    try {
+      const response = await fetch(urlWithParams);
+      const textResult = await response.text();
+      let result;
+      try {
+         result = JSON.parse(textResult);
+      } catch (e) {
+         throw new Error('Lỗi máy chủ');
+      }
+
+      if (result.status === 'success') {
         router.replace('/admin');
       } else {
-        window.alert('Tài khoản hoặc mật khẩu không chính xác!');
+        if (Platform.OS === 'web') window.alert('Tài khoản hoặc mật khẩu không chính xác!');
+        else Alert.alert('Lỗi đăng nhập', 'Tài khoản hoặc mật khẩu không chính xác!');
       }
-    }, 1000);
+    } catch (error) {
+      if (Platform.OS === 'web') window.alert('Lỗi kết nối, vui lòng thử lại.');
+      else Alert.alert('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenScanner = async () => {
@@ -120,12 +128,11 @@ export default function LoginScreen() {
     setShowScanner(true);
   };
 
-  const handleBarcodeScanned = ({ type, data }) => {
+  const handleBarcodeScanned = ({ type, data }: { type: string, data: string }) => {
     setShowScanner(false);
     setPatientId(data.trim().toUpperCase());
   };
 
-  // 🔥 MÀN HÌNH CHỜ TRONG LÚC LỤC TÌM TRÍ NHỚ 🔥
   if (isCheckingMemory) {
     return (
       <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -209,6 +216,7 @@ export default function LoginScreen() {
                   value={patientId}
                   onChangeText={setPatientId}
                   autoCapitalize="characters"
+                  outlineStyle="none" // Sửa lỗi viền xanh trên web
                 />
                 <TouchableOpacity onPress={handleOpenScanner} style={styles.qrScanBtn}>
                   <MaterialCommunityIcons name="qrcode-scan" size={20} color={colors.white} />
@@ -225,11 +233,11 @@ export default function LoginScreen() {
             <View style={styles.inputSection}>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons name="account" size={24} color={colors.textLight} style={styles.inputIcon} />
-                <TextInput style={styles.input} placeholder="Tên đăng nhập" placeholderTextColor={colors.textLight} value={username} onChangeText={setUsername} autoCapitalize="none" />
+                <TextInput style={styles.input} placeholder="Tên đăng nhập" placeholderTextColor={colors.textLight} value={username} onChangeText={setUsername} autoCapitalize="none" outlineStyle="none" />
               </View>
               <View style={[styles.inputWrapper, {marginTop: 15}]}>
                 <MaterialCommunityIcons name="lock" size={24} color={colors.textLight} style={styles.inputIcon} />
-                <TextInput style={styles.input} placeholder="Mật khẩu" placeholderTextColor={colors.textLight} secureTextEntry={true} value={password} onChangeText={setPassword} />
+                <TextInput style={styles.input} placeholder="Mật khẩu" placeholderTextColor={colors.textLight} secureTextEntry={true} value={password} onChangeText={setPassword} outlineStyle="none" />
               </View>
               <TouchableOpacity style={[styles.loginBtn, {backgroundColor: colors.actionBlack}]} onPress={handleAdminLogin} disabled={loading}>
                 {loading ? <ActivityIndicator color={colors.white} /> : <Text style={styles.loginBtnText}>ĐĂNG NHẬP</Text>}

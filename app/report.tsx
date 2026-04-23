@@ -1,35 +1,25 @@
 import React, { useState, useCallback } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Alert, Platform, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router'; 
 import { PieChart, BarChart } from 'react-native-chart-kit'; 
 
-// === BẢNG MÀU DEEP PURPLE - TRANG BÁO CÁO ===
 const colors = {
-  bg: '#F8FAFC',
-  headerBgPastel: '#A855F7', 
-  white: '#FFFFFF',
-  carbonDark: '#1E293B',     
-  tableHeader: '#E1BEE7',  
-  textLight: '#78909C',  
-  statusDone: '#10B981',   
-  statusSnooze: '#F59E0B', 
-  statusMissed: '#EF4444', 
-  info: '#0284C7',
-  zoomBtnBg: '#7E22CE' // Nút Zoom màu Tím đậm
+  bg: '#F8FAFC', headerBgPastel: '#A855F7', white: '#FFFFFF', carbonDark: '#1E293B',     
+  tableHeader: '#E1BEE7', textLight: '#78909C', statusDone: '#10B981',   
+  statusSnooze: '#F59E0B', statusMissed: '#EF4444', info: '#0284C7',
+  zoomBtnBg: '#7E22CE' 
 };
 
 export default function ReportScreen() {
   const [activeTab, setActiveTab] = useState('Synthetic'); 
-  const [logs, setLogs] = useState([]);
-  const [syntheticData, setSyntheticData] = useState(null);
-  const [individualData, setIndividualData] = useState([]);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [syntheticData, setSyntheticData] = useState<any>(null);
+  const [individualData, setIndividualData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
-  // 🔥 BIẾN QUẢN LÝ MÀN HÌNH VÀ THU PHÓNG 🔥
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; 
   const isMobile = width < 768;
@@ -56,15 +46,18 @@ export default function ReportScreen() {
     const gidSynthetic = '297712298'; 
     const gidIndividual = '1749901529'; 
     
-    const urlLog = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}`;
-    const urlSynthetic = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}`;
-    const urlIndividual = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidIndividual}`;
+    // 🔥 ĐÃ SỬA: Gắn "thần chú" chống Cache vào cả 3 link 🔥
+    const t = new Date().getTime();
+    const urlLog = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}&t=${t}`;
+    const urlSynthetic = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}&t=${t}`;
+    const urlIndividual = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidIndividual}&t=${t}`;
 
     try {
+      // 🔥 ĐÃ SỬA: Yêu cầu tải dữ liệu mới (no-store) 🔥
       const [resLog, resSynthetic, resIndividual] = await Promise.all([
-        fetch(urlLog),
-        fetch(urlSynthetic),
-        fetch(urlIndividual)
+        fetch(urlLog, { cache: 'no-store' }),
+        fetch(urlSynthetic, { cache: 'no-store' }),
+        fetch(urlIndividual, { cache: 'no-store' })
       ]);
 
       const [csvLog, csvSynthetic, csvIndividual] = await Promise.all([
@@ -79,7 +72,7 @@ export default function ReportScreen() {
         Papa.parse(csvIndividual, {
           header: true, skipEmptyLines: true,
           complete: (res) => {
-            const sortedData = res.data.sort((a, b) => {
+            const sortedData = res.data.sort((a: any, b: any) => {
               const rateA = parseFloat(a.Average_Adherence?.replace('%', '') || '0');
               const rateB = parseFloat(b.Average_Adherence?.replace('%', '') || '0');
               return rateA - rateB;
@@ -119,39 +112,34 @@ export default function ReportScreen() {
     );
   }
 
-  // 🔥 TÍNH TOÁN KÍCH THƯỚC ĐỘNG CHO BẢNG NHẬT KÝ & CÁ NHÂN 🔥
   const fSize = isMobile && !isZoomed ? 9 : 13; 
   const padV = isMobile && !isZoomed ? 8 : 16;   
   const padH = isMobile && !isZoomed ? 4 : 12;
 
-  // HÀM CHIA TỶ LỆ TAB NHẬT KÝ
-  const getLogColStyle = (colType) => {
+  const getLogColStyle = (colType: string) => {
     if (isMobile && isZoomed) {
-      const pxWidths = { time: 160, id: 90, name: 220, hour: 100, action: 120, status: 120 };
+      const pxWidths: any = { time: 160, id: 90, name: 220, hour: 100, action: 120, status: 120 };
       return { width: pxWidths[colType] };
     } else {
-      const pctWidths = { time: '18%', id: '11%', name: '30%', hour: '11%', action: '15%', status: '15%' };
+      const pctWidths: any = { time: '18%', id: '11%', name: '30%', hour: '11%', action: '15%', status: '15%' };
       return { width: pctWidths[colType] };
     }
   };
 
-  // HÀM CHIA TỶ LỆ TAB CÁ NHÂN
-  const getIndColStyle = (colType) => {
+  const getIndColStyle = (colType: string) => {
     if (isMobile && isZoomed) {
-      const pxWidths = { id: 90, name: 220, total: 100, used: 100, rate: 140, last: 160 };
+      const pxWidths: any = { id: 90, name: 220, total: 100, used: 100, rate: 140, last: 160 };
       return { width: pxWidths[colType] };
     } else {
-      const pctWidths = { id: '11%', name: '33%', total: '12%', used: '12%', rate: '14%', last: '18%' };
+      const pctWidths: any = { id: '11%', name: '33%', total: '12%', used: '12%', rate: '14%', last: '18%' };
       return { width: pctWidths[colType] };
     }
   };
 
-  // --- PHẦN 1: NHẬT KÝ SỬ DỤNG ---
   const renderLogTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Nhật Ký (Mới nhất)</Text>
-        {/* NÚT THU PHÓNG */}
         {isMobile && (
           <TouchableOpacity 
             onPress={() => setIsZoomed(!isZoomed)} 
@@ -216,7 +204,6 @@ export default function ReportScreen() {
     />
   );
 
-  // --- PHẦN 2: TỔNG HỢP TOÀN PHÒNG KHÁM ---
   const renderSyntheticTab = () => {
     if (!syntheticData || !syntheticData.Total_Patients) return (
         <View style={styles.centerContainer}>
@@ -323,12 +310,10 @@ export default function ReportScreen() {
     );
   };
 
-  // --- PHẦN 3: CHI TIẾT TỪNG CÁ NHÂN ---
   const renderIndividualTab = () => (
     <View style={styles.tabContent}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Báo Cáo Từng Cá Nhân</Text>
-        {/* NÚT THU PHÓNG */}
         {isMobile && (
           <TouchableOpacity 
             onPress={() => setIsZoomed(!isZoomed)} 
@@ -401,13 +386,11 @@ export default function ReportScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* --- HEADER CHỐNG ĐÈ CHỮ --- */}
         {isMobile ? (
           <View style={[styles.header, styles.headerMobile]}>
              <View style={styles.headerTopRowMobile}>
                <View style={styles.brandBoxMobile}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
                     <View style={styles.logoCircleMobile}>
                         <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
                     </View>
@@ -433,7 +416,6 @@ export default function ReportScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
                     <View style={styles.logoCircle}>
                         <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
                     </View>
@@ -495,7 +477,6 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   brandBox: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', flexDirection: 'row', alignItems: 'center' },
   
-  // 🔥 ĐÃ THAY NỀN TRẮNG CHO LOGO PC 🔥
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   
@@ -515,7 +496,6 @@ const styles = StyleSheet.create({
   headerTopRowMobile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandBoxMobile: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)' },
   
-  // 🔥 LOGO MOBILE ĐÃ SẴN NỀN TRẮNG 🔥
   logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
   
   brandMediMobile: { fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginLeft: 10, fontStyle: 'italic' },

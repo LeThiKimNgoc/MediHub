@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -23,7 +22,6 @@ export default function AddPatientScreen() {
   const [loading, setLoading] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   
-  // 🔥 Lắng nghe tham số quét QR trả về từ trang /scan 🔥
   const params = useLocalSearchParams();
   
   const [formData, setFormData] = useState({
@@ -36,14 +34,13 @@ export default function AddPatientScreen() {
 
   const genderOptions = ['Nam', 'Nữ', 'Khác'];
 
-  // Tự động điền mã QR nếu được chuyển về từ trang Scan
   useEffect(() => {
     if (params?.scannedId) {
       setFormData(prev => ({ ...prev, PatientID: params.scannedId as string }));
     }
   }, [params?.scannedId]);
 
-  const handleChange = (name, value) => {
+  const handleChange = (name: string, value: string) => {
     setFormData({ ...formData, [name]: value });
   };
 
@@ -56,10 +53,12 @@ export default function AddPatientScreen() {
 
     setLoading(true);
     
+    // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+    
+    // 🔥 ĐÃ SỬA LẠI ACTION THÀNH 'addPatient' ĐỂ KHỚP VỚI BACKEND 🔥
     const payload = {
-      action: 'add',
-      sheetName: 'Patients',
+      action: 'addPatient',
       data: {
         PatientID: formData.PatientID,
         Name: formData.Name,
@@ -99,7 +98,7 @@ export default function AddPatientScreen() {
 
           if (Platform.OS === 'web') {
               if (window.confirm(`Đã tạo hồ sơ cho ${tempName} thành công!\nBạn có muốn di chuyển đến Danh sách bệnh nhân để gán thuốc ngay không?`)) {
-                  router.push(routeParams);
+                  router.push(routeParams as any);
               }
           } else {
               Alert.alert(
@@ -107,7 +106,7 @@ export default function AddPatientScreen() {
                   `Bạn có muốn di chuyển đến Danh sách bệnh nhân để gán thuốc cho ${tempName} ngay không?`,
                   [
                       { text: 'Lúc khác', style: 'cancel' },
-                      { text: 'Đến trang Gán Thuốc', onPress: () => router.push(routeParams) }
+                      { text: 'Đến trang Gán Thuốc', onPress: () => router.push(routeParams as any) }
                   ]
               );
           }
@@ -141,7 +140,6 @@ export default function AddPatientScreen() {
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} />
         </TouchableOpacity>
         
-        {/* 🔥 BÊ ẢNH FAVICON NỀN TRẮNG VÀO ĐÂY 🔥 */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
         </View>
@@ -154,7 +152,6 @@ export default function AddPatientScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Mã Bệnh Nhân (*)</Text>
-          {/* 🔥 Gắn nút Quét QR vào trong ô nhập liệu 🔥 */}
           <View style={[styles.inputContainer, { borderColor: colors.primary, borderWidth: 2 }]}>
             <TextInput 
               style={styles.inputWithIcon} 
@@ -163,10 +160,9 @@ export default function AddPatientScreen() {
               value={formData.PatientID} 
               onChangeText={(text) => handleChange('PatientID', text)} 
             />
-            {/* Nút bấm chuyển sang màn hình quét QR */}
             <TouchableOpacity 
               style={styles.qrButton} 
-              onPress={() => router.push({ pathname: '/scan', params: { returnTo: '/add-patient' } })}
+              onPress={() => router.push({ pathname: '/scan', params: { returnTo: '/add-patient' } } as any)}
             >
               <MaterialCommunityIcons name="qrcode-scan" size={22} color={colors.headerText} />
             </TouchableOpacity>
@@ -245,7 +241,6 @@ const styles = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 18, paddingHorizontal: 15, elevation: 4 },
   backButton: { marginRight: 15, padding: 5 },
   
-  // 🔥 Thêm Style cho Logo trên Header 🔥
   logoCircleHeader: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: colors.headerText },
@@ -256,7 +251,6 @@ const styles = StyleSheet.create({
   input: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark },
   textArea: { height: 70, textAlignVertical: 'top' },
   
-  // Style cho ô nhập liệu có chứa icon Quét QR
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, overflow: 'hidden' },
   inputWithIcon: { flex: 1, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark },
   qrButton: { padding: 12, backgroundColor: '#FFEDD5', borderLeftWidth: 1, borderLeftColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' },

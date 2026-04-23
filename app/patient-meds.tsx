@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Modal, Alert, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TouchableOpacity, useWindowDimensions, Modal, Alert, Platform, RefreshControl, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router'; 
@@ -24,8 +24,9 @@ export default function PatientMedsScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; 
 
-  // 🔥 XÓA LINK NÀY VÀ DÁN LINK "BẢN TRIỂN KHAI MỚI" CỦA BẠN VÀO ĐÂY 🔥
+  // URL Web App
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+  
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) router.replace('/');
@@ -40,10 +41,13 @@ export default function PatientMedsScreen() {
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     const gidRemind = '2073748495'; 
     const gidLog = '1373475002'; 
+    
+    // 🔥 ĐÃ SỬA: Gắn "thần chú" chống Cache cho cả 2 luồng tải dữ liệu 🔥
+    const t = new Date().getTime();
 
     Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidRemind}`).then(res => res.text()),
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}`).then(res => res.text())
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidRemind}&t=${t}`, { cache: 'no-store' }).then(res => res.text()),
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}&t=${t}`, { cache: 'no-store' }).then(res => res.text())
     ]).then(([csvRemind, csvLog]) => {
       
       let logsData: any[] = [];
@@ -88,21 +92,51 @@ export default function PatientMedsScreen() {
 
   const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); }, [patientId]);
 
-  const deleteMedication = (medId, medName, time) => {
+  const deleteMedication = (medId: string, medName: string, time: string) => {
     const executeDelete = async () => {
       setLoading(true);
       try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_med', id: medId, sheetName: 'Remind' }) });
-        const result = await response.json();
-        if (result.status === 'success') { Alert.alert('Đã xóa', `Đã xóa cữ ${time} của thuốc ${medName}.`); fetchMedications(); } 
+        // 🔥 ĐÃ SỬA: Gửi "Kiềng 3 chân" lên máy chủ thay vì ID 🔥
+        const payload = { 
+          action: 'deleteRemind', 
+          PatientsID: patientId,
+          MedicineName: medName,
+          Time: time
+        };
+        
+        const response = await fetch(SCRIPT_URL, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+          body: JSON.stringify(payload) 
+        });
+        
+        const textResult = await response.text();
+        let result;
+        try {
+          result = JSON.parse(textResult);
+        } catch(e) {
+          throw new Error("Lỗi máy chủ");
+        }
+
+        if (result.status === 'success') { 
+          Alert.alert('Đã xóa', `Đã xóa cữ ${time} của thuốc ${medName}.`); 
+          fetchMedications(); 
+        } 
         else { Alert.alert('Lỗi', result.message || 'Không thể xóa.'); }
       } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối.'); } finally { setLoading(false); }
     };
-    if (Platform.OS === 'web') { if (window.confirm(`Xóa cữ lúc ${time} của thuốc "${medName}"?`)) executeDelete(); } 
-    else { Alert.alert("Xác nhận xóa", `Xóa cữ lúc ${time} của thuốc "${medName}"?`, [{ text: "Hủy", style: "cancel" }, { text: "Xóa", style: "destructive", onPress: executeDelete }]); }
+    
+    if (Platform.OS === 'web') { 
+      if (window.confirm(`Xóa cữ lúc ${time} của thuốc "${medName}"?`)) executeDelete(); 
+    } else { 
+      Alert.alert("Xác nhận xóa", `Xóa cữ lúc ${time} của thuốc "${medName}"?`, [
+        { text: "Hủy", style: "cancel" }, 
+        { text: "Xóa", style: "destructive", onPress: executeDelete }
+      ]); 
+    }
   };
 
-  const submitLog = async (newStatus) => {
+  const submitLog = async (newStatus: string) => {
     setIsLogging(true);
 
     const logPayload = {
@@ -124,7 +158,13 @@ export default function PatientMedsScreen() {
           body: JSON.stringify(logPayload) 
       });
       
-      const result = await response.json();
+      const textResult = await response.text();
+      let result;
+      try {
+        result = JSON.parse(textResult);
+      } catch(e) {
+        throw new Error("Lỗi máy chủ");
+      }
 
       if (result.status === 'success') {
           setLogModalVisible(false);
@@ -137,7 +177,7 @@ export default function PatientMedsScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Không thể kết nối máy chủ Google Sheets.'); } finally { setIsLogging(false); }
   };
 
-  const openLogModal = (med) => { setSelectedMed(med); setLogModalVisible(true); };
+  const openLogModal = (med: any) => { setSelectedMed(med); setLogModalVisible(true); };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -225,7 +265,7 @@ export default function PatientMedsScreen() {
                   return (
                     <View style={[styles.tableRow, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
                       <View style={[styles.dataCell, { width: 90, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 }]}>
-                        <TouchableOpacity onPress={() => router.push({ pathname: '/edit-patient-med', params: item })} style={[styles.deleteButton, { backgroundColor: '#FFF9C4' }]}><MaterialCommunityIcons name="pencil-outline" size={18} color="#F57F17" /></TouchableOpacity>
+                        <TouchableOpacity onPress={() => router.push({ pathname: '/edit-patient-med', params: item } as any)} style={[styles.deleteButton, { backgroundColor: '#FFF9C4' }]}><MaterialCommunityIcons name="pencil-outline" size={18} color="#F57F17" /></TouchableOpacity>
                         <TouchableOpacity onPress={() => deleteMedication(item.ID, item.MedicineName, item.Time)} style={styles.deleteButton}><MaterialCommunityIcons name="trash-can-outline" size={18} color="#D32F2F" /></TouchableOpacity>
                       </View>
                       <Text style={[styles.dataCell, styles.boldText, { flex: 2 }]}>{item.MedicineName}</Text>
@@ -247,7 +287,7 @@ export default function PatientMedsScreen() {
           </ScrollView>
         )}
       </View>
-      <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/add-patient-med', params: { id: patientId, name: patientName } })} activeOpacity={0.8}><MaterialCommunityIcons name="pill" size={32} color={colors.headerText} /></TouchableOpacity>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/add-patient-med', params: { id: patientId, name: patientName } } as any)} activeOpacity={0.8}><MaterialCommunityIcons name="pill" size={32} color={colors.headerText} /></TouchableOpacity>
     </SafeAreaView>
   );
 }

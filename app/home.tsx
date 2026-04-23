@@ -1,32 +1,21 @@
 import React, { useState, useCallback } from 'react';
-// 🔥 Bổ sung thêm thẻ Image vào đây 🔥
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, ScrollView, SafeAreaView, TextInput, TouchableOpacity, Alert, useWindowDimensions, Platform, RefreshControl, Image } from 'react-native';
 import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router'; 
 
-// === BẢNG MÀU DEEP TEAL - TRANG DANH MỤC D&C ===
 const colors = {
-  bg: '#F8FAFC',
-  headerBgPastel: '#14B8A6', 
-  white: '#FFFFFF',
-  carbonDark: '#1E293B',     
-  tableHeader: '#C5E1E5',  
-  textLight: '#78909C',  
-  dangerPastel: '#FFCDD2', 
-  dangerText: '#D32F2F',
-  warningPastel: '#FFF9C4',
-  warningText: '#F57F17',
-  zoomBtnBg: '#0F766E'
+  bg: '#F8FAFC', headerBgPastel: '#14B8A6', white: '#FFFFFF', carbonDark: '#1E293B',     
+  tableHeader: '#C5E1E5', textLight: '#78909C', dangerPastel: '#FFCDD2', dangerText: '#D32F2F',
+  warningPastel: '#FFF9C4', warningText: '#F57F17', zoomBtnBg: '#0F766E'
 };
 
 export default function HomeScreen() {
-  const [medicines, setMedicines] = useState([]);
+  const [medicines, setMedicines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 🔥 BIẾN QUẢN LÝ MÀN HÌNH VÀ THU PHÓNG 🔥
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; 
   const isMobile = width < 768;
@@ -50,9 +39,9 @@ export default function HomeScreen() {
 
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     const gid = '1532424446'; 
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}&t=${new Date().getTime()}`;
 
-    fetch(csvUrl)
+    fetch(csvUrl, { cache: 'no-store' })
       .then(response => response.text())
       .then(csvText => {
         Papa.parse(csvText, {
@@ -78,7 +67,7 @@ export default function HomeScreen() {
     fetchMedicines(true);
   }, []);
 
-  const deleteMedicine = (id, name) => {
+  const deleteMedicine = (id: string, name: string) => {
     if (!id) {
       Alert.alert('Lỗi', 'Sản phẩm này chưa có ID hệ thống, không thể xóa.');
       return;
@@ -91,11 +80,21 @@ export default function HomeScreen() {
       try {
         const response = await fetch(scriptUrl, {
           method: 'POST',
-          body: JSON.stringify({ action: 'delete', id: id }),
-          headers: { 'Content-Type': 'application/json' }
+          // 🔥 ĐÃ SỬA: Đổi action thành 'deleteMedicine' và bọc trong data 🔥
+          body: JSON.stringify({ 
+            action: 'deleteMedicine', 
+            id: id 
+          }),
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' } // Ép text/plain chống CORS
         });
         
-        const result = await response.json();
+        const textResult = await response.text();
+        let result;
+        try {
+            result = JSON.parse(textResult);
+        } catch(e) {
+            throw new Error('Lỗi Server');
+        }
         
         if (result.status === 'success') {
           Alert.alert('Đã xóa', 'Sản phẩm đã được loại bỏ khỏi danh mục D&C.');
@@ -133,7 +132,6 @@ export default function HomeScreen() {
     return ten.includes(tuKhoa) || hoatChat.includes(tuKhoa) || idMed.includes(tuKhoa);
   });
 
-  // 🔥 LOGIC HIỂN THỊ CỘT THÔNG MINH 🔥
   const fSize = isMobile && !isZoomed ? 10 : 14; 
   const padV = isMobile && !isZoomed ? 8 : 16;   
   const padH = isMobile && !isZoomed ? 4 : 12;
@@ -145,9 +143,7 @@ export default function HomeScreen() {
       keyExtractor={(item) => item.ID ? item.ID.toString() : Math.random().toString()}
       showsVerticalScrollIndicator={true} 
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.headerBgPastel]} />}
-      
       stickyHeaderIndices={[0]} 
-
       ListHeaderComponent={
         <View style={styles.tableHeaderRow}>
           <Text style={[styles.headerCell, isMobile && isZoomed ? { width: 100 } : { flex: 1.2 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, textAlign: 'center' }]}>Thao tác</Text>
@@ -159,17 +155,14 @@ export default function HomeScreen() {
           <Text style={[styles.headerCell, isMobile && isZoomed ? { width: 200 } : { flex: 2 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, borderRightWidth: 0 }]}>Ghi Chú</Text>
         </View>
       }
-
       renderItem={({ item, index }) => (
         <View style={[styles.tableRow, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
           <View style={[styles.dataCell, isMobile && isZoomed ? { width: 100 } : { flex: 1.2 }, { paddingVertical: padV, paddingHorizontal: padH, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: isMobile && !isZoomed ? 4 : 8 }]}>
-            <TouchableOpacity onPress={() => router.push({ pathname: '/edit', params: item })} style={[styles.actionButton, { backgroundColor: colors.warningPastel, padding: isMobile && !isZoomed ? 4 : 6 }]}><MaterialCommunityIcons name="pencil-outline" size={iconSize} color={colors.warningText} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/edit', params: item } as any)} style={[styles.actionButton, { backgroundColor: colors.warningPastel, padding: isMobile && !isZoomed ? 4 : 6 }]}><MaterialCommunityIcons name="pencil-outline" size={iconSize} color={colors.warningText} /></TouchableOpacity>
             <TouchableOpacity onPress={() => deleteMedicine(item.ID, item.MedicineName)} style={[styles.actionButton, { backgroundColor: colors.dangerPastel, padding: isMobile && !isZoomed ? 4 : 6 }]}><MaterialCommunityIcons name="trash-can-outline" size={iconSize} color={colors.dangerText} /></TouchableOpacity>
           </View>
           <Text style={[styles.dataCell, isMobile && isZoomed ? { width: 80 } : { flex: 0.8 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, textAlign: 'center', color: colors.textLight, fontWeight: '600' }]}>{item.ID}</Text>
-          
           <Text style={[styles.dataCell, styles.boldText, isMobile && isZoomed ? { width: 250 } : { flex: 2.5 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, color: colors.headerBgPastel }]}>{item.MedicineName}</Text>
-          
           <Text style={[styles.dataCell, isMobile && isZoomed ? { width: 200 } : { flex: 2 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize }]} numberOfLines={3}>{item.ActiveIngredient}</Text>
           <Text style={[styles.dataCell, isMobile && isZoomed ? { width: 120 } : { flex: 1.2 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize, textAlign: 'center' }]}>{item.PackingSpecifications}</Text>
           <Text style={[styles.dataCell, isMobile && isZoomed ? { width: 150 } : { flex: 1.5 }, { paddingVertical: padV, paddingHorizontal: padH, fontSize: fSize }]} numberOfLines={3}>{item.Use}</Text>
@@ -183,14 +176,11 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        
-        {/* --- HEADER ĐÃ ĐƯỢC ĐỘ LOGO MỚI --- */}
         {isMobile ? (
           <View style={[styles.header, styles.headerMobile]}>
              <View style={styles.headerTopRowMobile}>
                <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (MOBILE) 🔥 */}
                     <View style={styles.logoCircleMobile}>
                         <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
                     </View>
@@ -216,7 +206,6 @@ export default function HomeScreen() {
               <View style={styles.headerLeft}>
                 <View style={styles.brandBox}>
                   <View style={styles.brandRow}>
-                    {/* 🔥 BÊ ẢNH FAVICON VÀO ĐÂY (PC) 🔥 */}
                     <View style={styles.logoCircle}>
                       <Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" />
                     </View>
@@ -321,7 +310,6 @@ const styles = StyleSheet.create({
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
   headerLeft: { flex: 1, alignItems: 'flex-start' },
   
-  // 🔥 STYLE LOGO ĐÃ ĐƯỢC CHỈNH NỀN TRẮNG 🔥
   brandBox: {
     paddingHorizontal: 4,
     paddingVertical: 4,
@@ -369,7 +357,7 @@ const styles = StyleSheet.create({
   contentContainer: { flex: 1, paddingHorizontal: '2%', paddingBottom: 10, width: '100%' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 16, paddingHorizontal: 15, marginBottom: 10, borderWidth: 1, borderColor: '#E2E8F0', elevation: 1 },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: colors.carbonDark, fontWeight: '500' },
+  searchInput: { flex: 1, paddingVertical: 14, fontSize: 16, color: colors.carbonDark, fontWeight: '500', outlineStyle: 'none' as any },
   clearIcon: { padding: 5 },
   
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingHorizontal: 5 },
