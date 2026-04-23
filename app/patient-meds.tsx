@@ -26,7 +26,6 @@ export default function PatientMedsScreen() {
 
   // 🔥 XÓA LINK NÀY VÀ DÁN LINK "BẢN TRIỂN KHAI MỚI" CỦA BẠN VÀO ĐÂY 🔥
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
-
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) router.replace('/');

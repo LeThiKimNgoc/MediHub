@@ -39,7 +39,6 @@ export default function EditMedicineScreen() {
     setLoading(true);
     // 🔥 ĐIỀN ĐƯỜNG LINK WEB APP URL VÀO ĐÂY:
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
-
     try {
       const response = await fetch(scriptUrl, {
         method: 'POST',

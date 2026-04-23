@@ -63,11 +63,11 @@ export default function PatientScreen() {
   const editNameRef = useRef(null); const editAgeRef = useRef(null); const editIcdRef = useRef(null); const editDateRef = useRef(null);
   const timeRef = useRef(null); const dosageRef = useRef(null); const methodRef = useRef(null); const qtyRef = useRef(null);    
 
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz5AnG5s_o2-nnXYYH0P0kb3-3N0QFgNOzg_Ix0KLDoG4SBvuqmouSLxfGPXRj068-O7A/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
   const fetchData = (isRefreshing = false) => {
     if (!isRefreshing) setLoading(true); 
-    const sheetId = '1raKHK5ibDLtRDhZmkDJ3kEAs8fApJBesoQPpRyoBszU';
+    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     
     Promise.all([
       fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`).then(res => res.text()),
