@@ -56,7 +56,9 @@ export default function AddPatientScreen() {
     // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
     
-    // 🔥 ĐÃ SỬA LẠI ACTION THÀNH 'addPatient' ĐỂ KHỚP VỚI BACKEND 🔥
+    // 🔥 ĐÃ SỬA: Tự động lấy ngày hiện tại chèn vào Ngày Khám 🔥
+    const today = new Date().toLocaleDateString('vi-VN');
+
     const payload = {
       action: 'addPatient',
       data: {
@@ -64,7 +66,8 @@ export default function AddPatientScreen() {
         Name: formData.Name,
         Age: formData.Age,
         Gender: formData.Gender,
-        ICD: formData.ICD
+        ICD: formData.ICD,
+        DayStart: today // Thêm dòng này vào
       }
     };
 
@@ -159,6 +162,7 @@ export default function AddPatientScreen() {
               placeholderTextColor={colors.textLight} 
               value={formData.PatientID} 
               onChangeText={(text) => handleChange('PatientID', text)} 
+              outlineStyle="none"
             />
             <TouchableOpacity 
               style={styles.qrButton} 
@@ -171,12 +175,12 @@ export default function AddPatientScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Họ và Tên (*)</Text>
-          <TextInput style={styles.input} placeholder="Vd: Nguyễn Văn A" placeholderTextColor={colors.textLight} value={formData.Name} onChangeText={(text) => handleChange('Name', text)} />
+          <TextInput style={styles.input} placeholder="Vd: Nguyễn Văn A" placeholderTextColor={colors.textLight} value={formData.Name} onChangeText={(text) => handleChange('Name', text)} outlineStyle="none" />
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tuổi (*)</Text>
-          <TextInput style={styles.input} placeholder="Vd: 35" placeholderTextColor={colors.textLight} keyboardType="numeric" value={formData.Age} onChangeText={(text) => handleChange('Age', text)} />
+          <TextInput style={styles.input} placeholder="Vd: 35" placeholderTextColor={colors.textLight} keyboardType="numeric" value={formData.Age} onChangeText={(text) => handleChange('Age', text)} outlineStyle="none" />
         </View>
 
         <View style={styles.inputGroup}>
@@ -197,7 +201,7 @@ export default function AddPatientScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Mã ICD / Chẩn đoán</Text>
-          <TextInput style={[styles.input, styles.textArea]} placeholder="Vd: J00, Viêm họng cấp..." multiline={true} numberOfLines={2} value={formData.ICD} onChangeText={(text) => handleChange('ICD', text)} />
+          <TextInput style={[styles.input, styles.textArea]} placeholder="Vd: J00, Viêm họng cấp..." multiline={true} numberOfLines={2} value={formData.ICD} onChangeText={(text) => handleChange('ICD', text)} outlineStyle="none" />
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={submitData} disabled={loading}>
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
   textArea: { height: 70, textAlignVertical: 'top' },
   
   inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, overflow: 'hidden' },
-  inputWithIcon: { flex: 1, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark },
+  inputWithIcon: { flex: 1, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark, outlineStyle: 'none' as any },
   qrButton: { padding: 12, backgroundColor: '#FFEDD5', borderLeftWidth: 1, borderLeftColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' },
 
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 },

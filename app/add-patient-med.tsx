@@ -27,17 +27,19 @@ export default function AddPatientMedScreen() {
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
   const [loadingData, setLoadingData] = useState(true); 
 
+  // 🔥 ĐÃ THÊM TRƯỜNG DURATION VÀO FORM 🔥
   const [formData, setFormData] = useState({
-    sheetName: 'Remind', 
+    sheetName: 'Log', // Nhớ đẩy về đúng nhà mới là Log nhé
     PatientsID: params.id || '', 
     MedicineName: '', 
     Time: [] as string[], 
     Reminder_mode: 'Bật',
-    Status: 'Đang sử dụng', 
+    Status: 'Chưa sử dụng', 
     Quantity: '',   
     DoseAmount: '', 
     DoseUnit: 'giọt', 
-    Usage: '' 
+    Usage: '',
+    Duration: '' // Dữ liệu lưu số ngày
   });
 
   const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'cái'];
@@ -47,16 +49,37 @@ export default function AddPatientMedScreen() {
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     const gidUsage = '1133416002'; 
     const gidMedicine = '1532424446'; 
-
+    
+    const t = new Date().getTime();
     Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidUsage}`).then(res => res.text()),
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMedicine}`).then(res => res.text())
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidUsage}&t=${t}`).then(res => res.text()),
+      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMedicine}&t=${t}`).then(res => res.text())
     ]).then(([csvUsage, csvMedicine]) => {
       Papa.parse(csvUsage, { header: true, skipEmptyLines: true, complete: (results) => setUsageOptions(results.data.map((i: any) => i.Usage).filter(Boolean)) });
       Papa.parse(csvMedicine, { header: true, skipEmptyLines: true, complete: (results) => setMedicineOptions(results.data.map((i: any) => ({ name: i.MedicineName, use: i.Use })).filter(m => m.name)) });
       setLoadingData(false);
     }).catch(e => setLoadingData(false));
   }, []);
+
+  // 🔥 THUẬT TOÁN TỰ ĐỘNG TÍNH SỐ NGÀY DÙNG 🔥
+  useEffect(() => {
+    // Chỉ tự tính nếu đơn vị là 'viên'
+    if (formData.DoseUnit === 'viên') {
+      const qty = parseFloat(formData.Quantity); // Tổng số lượng
+      const dose = parseFloat(formData.DoseAmount.replace(',', '.')); // Liều lượng mỗi lần (vd 1, 0.5)
+      const freq = formData.Time.length; // Tần suất (số lần uống trong ngày)
+
+      if (qty && dose && freq) {
+        // Làm tròn xuống (ví dụ 10.5 ngày thì ghi 10)
+        const days = Math.floor(qty / (dose * freq)); 
+        setFormData(prev => ({ ...prev, Duration: days.toString() }));
+      } else {
+        // Nếu xóa trắng thì xóa Duration
+        setFormData(prev => ({ ...prev, Duration: '' }));
+      }
+    }
+  }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit]);
+
 
   const handleSelectMedicine = (med: any) => {
     let autoUnit = formData.DoseUnit;
@@ -81,7 +104,6 @@ export default function AddPatientMedScreen() {
     setTimePickerVisible(false); 
   };
 
-  // 🔥 HÀM GỬI DỮ LIỆU ĐÃ ĐƯỢC CHUẨN HÓA 🔥
   const submitData = async () => {
     if (!formData.MedicineName || formData.Time.length === 0 || !formData.DoseAmount) {
       Alert.alert('Lỗi nhập liệu', 'Vui lòng Chọn Thuốc, Chọn ít nhất 1 khung giờ và nhập Liều lượng!');
@@ -89,10 +111,8 @@ export default function AddPatientMedScreen() {
     }
 
     setLoading(true);
-    // Link Web App mới nhất của bạn
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
-    // Bọc dữ liệu vào trong data và dán nhãn action là 'addRemind'
     const payload = { 
       action: 'addRemind', 
       data: {
@@ -113,7 +133,7 @@ export default function AddPatientMedScreen() {
         const result = JSON.parse(textResult);
         if (result.status === 'success') {
           setToastVisible(true);
-          setFormData({ ...formData, MedicineName: '', Time: [], Quantity: '', DoseAmount: '', Usage: '' }); 
+          setFormData({ ...formData, MedicineName: '', Time: [], Quantity: '', DoseAmount: '', Usage: '', Duration: '' }); 
           setTimeout(() => setToastVisible(false), 3000);
         } else Alert.alert('Lỗi hệ thống', result.message);
       } catch (e) { Alert.alert('Lỗi Máy Chủ', 'Apps Script đang bị lỗi.'); }
@@ -237,7 +257,7 @@ export default function AddPatientMedScreen() {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Liều Lượng 1 Lần (*)</Text>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-            <TextInput style={[styles.input, {flex: 0.4, textAlign: 'center'}]} placeholder="Vd: 1, 2" keyboardType="default" placeholderTextColor={colors.textLight} value={formData.DoseAmount} onChangeText={(text) => handleChange('DoseAmount', text)} />
+            <TextInput style={[styles.input, {flex: 0.4, textAlign: 'center'}]} placeholder="Vd: 1, 2" keyboardType="default" placeholderTextColor={colors.textLight} value={formData.DoseAmount} onChangeText={(text) => handleChange('DoseAmount', text)} outlineStyle="none" />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}}>
               <View style={[styles.chipsContainer, {flexWrap: 'nowrap'}]}>
                 {unitOptions.map((unit, i) => (
@@ -260,12 +280,27 @@ export default function AddPatientMedScreen() {
         </View>
 
         <View style={{flexDirection: 'row', gap: 15}}>
-          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Cấp Số Lượng Tổng</Text><TextInput style={styles.input} placeholder="Vd: 30, 1 lọ" placeholderTextColor={colors.textLight} value={formData.Quantity} onChangeText={(text) => handleChange('Quantity', text)} /></View>
+          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Cấp Số Lượng Tổng</Text><TextInput style={styles.input} placeholder="Vd: 30" placeholderTextColor={colors.textLight} value={formData.Quantity} onChangeText={(text) => handleChange('Quantity', text)} keyboardType="numeric" outlineStyle="none" /></View>
           <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Nhắc nhở (App)</Text>
             <View style={styles.chipsContainer}>
               {reminderOptions.map((opt, i) => <TouchableOpacity key={i} style={[styles.chip, formData.Reminder_mode === opt ? styles.chipSelected : null]} onPress={() => handleChange('Reminder_mode', opt)}><Text style={[styles.chipText, formData.Reminder_mode === opt ? styles.chipTextSelected : null]}>{opt}</Text></TouchableOpacity>)}
             </View>
           </View>
+        </View>
+
+        {/* 🔥 Ô HIỂN THỊ SỐ NGÀY DÙNG 🔥 */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Thời Gian Sử Dụng (Ngày)</Text>
+          <TextInput 
+            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#F0FDF4' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#86EFAC' : '#E0E0E0' }]} 
+            placeholder="Nhập số ngày hoặc tự tính..." 
+            placeholderTextColor={colors.textLight} 
+            value={formData.Duration} 
+            onChangeText={(text) => handleChange('Duration', text)} 
+            keyboardType="numeric"
+            outlineStyle="none"
+          />
+          {formData.DoseUnit === 'viên' && <Text style={{fontSize: 12, color: '#059669', marginTop: 5, fontStyle: 'italic'}}>* Hệ thống đang tự động tính số ngày dựa trên liều lượng.</Text>}
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={submitData} disabled={loading}>

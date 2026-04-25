@@ -26,6 +26,7 @@ if (Platform.OS !== 'web') {
 }
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
+
 export default function PatientHomeScreen() {
   const params = useLocalSearchParams();
   const patientId = params.id as string;
@@ -36,8 +37,6 @@ export default function PatientHomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
   
   // State quản lý Modals
   const [isSymptomModalVisible, setSymptomModalVisible] = useState(false);
@@ -49,7 +48,6 @@ export default function PatientHomeScreen() {
   const [selectedMed, setSelectedMed] = useState<any>(null);
   const [isLogging, setIsLogging] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
-  const [streak, setStreak] = useState(0);
   const [cooldown, setCooldown] = useState(0);
 
   // Đồng hồ chạy lùi
@@ -61,20 +59,38 @@ export default function PatientHomeScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  // 🔥 1. THAY THẾ HÀM TẢI THUỐC (TÁCH CỮ GIỜ) 🔥
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
       if (cachedMeds) { setMedications(JSON.parse(cachedMeds)); setLoading(false); } else setLoading(true);
     }
-    // 🔥 ĐÃ SỬA: GID CỦA TAB REMIND MỚI (2073748495) 🔥
     const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=2073748495&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(async csvText => {
         Papa.parse(csvText, {
           header: true, skipEmptyLines: true,
           complete: async (results) => {
-            let myMeds = results.data.filter((item: any) => item.PatientsID === patientId);
-            myMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
-            setMedications(myMeds); await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(myMeds)); 
+            let rawMeds = results.data.filter((item: any) => item.PatientsID === patientId);
+            
+            // --- THUẬT TOÁN TÁCH CỮ THUỐC ---
+            let splitMeds: any[] = [];
+            rawMeds.forEach(med => {
+              if (med.Time) {
+                // Tách chuỗi giờ bằng dấu phẩy
+                const timesArray = med.Time.split(',').map((t: string) => t.trim());
+                timesArray.forEach((t: string) => {
+                  if (t) splitMeds.push({ ...med, Time: t, originalTimes: med.Time });
+                });
+              } else {
+                splitMeds.push(med); 
+              }
+            });
+
+            // Sắp xếp lại theo giờ từ sáng đến tối
+            splitMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
+            
+            setMedications(splitMeds); 
+            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(splitMeds)); 
             setLoading(false); setRefreshing(false);
           }
         });
@@ -86,7 +102,6 @@ export default function PatientHomeScreen() {
       const cachedHistory = await AsyncStorage.getItem(`@cached_history_${patientId}`);
       if (cachedHistory) setHistoryLogs(JSON.parse(cachedHistory)); else setLoadingHistory(true);
     }
-    // 🔥 ĐÃ SỬA: GID CỦA TAB LOG MỚI (1373475002) 🔥
     const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1373475002&t=${new Date().getTime()}`;
     fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(csvText => {
         Papa.parse(csvText, {
@@ -113,7 +128,6 @@ export default function PatientHomeScreen() {
       if (result.status === 'success') {
           if (newStatus === 'Đã sử dụng') {
              const terms = getMedTerminology(selectedMed);
-             // Chỉ đếm ngược nếu là thuốc nhỏ hoặc tra
              if (terms.action === 'nhỏ' || terms.action === 'tra') {
                  setCooldown(600); 
              }
@@ -124,7 +138,7 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
-  // XỬ LÝ GỬI TRIỆU CHỨNG (Khớp với Google Script để trình hội đồng)
+  // XỬ LÝ GỬI TRIỆU CHỨNG 
   const submitSymptoms = async (symptoms: string) => {
     setIsLogging(true);
     const logPayload = { 
@@ -132,10 +146,10 @@ export default function PatientHomeScreen() {
       sheetName: 'TrieuChung', 
       data: { 
         PatientsID: patientId, 
-        MedicineName: patientName, // Nhét Tên BN vào cột MedicineName (Cột B trên Sheet)
+        MedicineName: patientName, 
         PlannedTime: `${new Date().getHours()}:${new Date().getMinutes() < 10 ? '0'+new Date().getMinutes() : new Date().getMinutes()} - ${new Date().getDate()}/${new Date().getMonth() + 1}`, 
         Action: 'Báo cáo triệu chứng',
-        Status: symptoms // Nhét triệu chứng vào cột Status (Cột E trên Sheet)
+        Status: symptoms 
       } 
     };
     try {
@@ -160,18 +174,28 @@ export default function PatientHomeScreen() {
     ]);
   };
 
+  // 🔥 2. THAY THẾ LOGIC TÍNH THANH TIẾN ĐỘ 🔥
   const dashboardStats = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    
     const todayTakenLogs = historyLogs.filter(log => log.Status === 'Đã sử dụng' && (log.Timestamp && log.Timestamp.includes(todayStr)));
     const takenKeys = todayTakenLogs.map(log => `${log.MedicineName}-${log.PlannedTime}`);
+    
+    let completedCount = 0;
+    medications.forEach(med => {
+      if (takenKeys.includes(`${med.MedicineName}-${med.Time}`)) {
+        completedCount++;
+      }
+    });
+
     const remainingMeds = medications.filter(med => !takenKeys.includes(`${med.MedicineName}-${med.Time}`));
     const nextDose = remainingMeds.length > 0 ? remainingMeds[0] : null;
 
     return {
-      total: medications.length,
-      completed: todayTakenLogs.length,
-      progressPercent: medications.length > 0 ? (todayTakenLogs.length / medications.length) * 100 : 0,
+      total: medications.length, 
+      completed: completedCount, 
+      progressPercent: medications.length > 0 ? (completedCount / medications.length) * 100 : 0,
       nextDose
     };
   }, [medications, historyLogs]);
@@ -202,8 +226,15 @@ export default function PatientHomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
+          
+          // 🔥 3. THAY THẾ LOGIC TÔ MÀU 1 THẺ DUY NHẤT 🔥
           renderItem={({ item }) => {
-            const isDoneToday = historyLogs.some(log => log.MedicineName === item.MedicineName && log.PlannedTime === item.Time && log.Status === 'Đã sử dụng' && log.Timestamp?.includes(new Date().getDate().toString().padStart(2, '0')));
+            const isDoneToday = historyLogs.some(log => 
+              log.MedicineName === item.MedicineName && 
+              log.PlannedTime === item.Time && 
+              log.Status === 'Đã sử dụng' && 
+              log.Timestamp?.includes(new Date().getDate().toString().padStart(2, '0'))
+            );
             return <MedCardItem item={item} isDoneToday={isDoneToday} onPress={() => { setSelectedMed(item); setLogModalVisible(true); }} />;
           }}
         />
