@@ -10,7 +10,6 @@ import { colors } from '../constants/theme';
 import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
 import { MedCardItem } from '../components/Dashboard/MedCardItem';
 
-// Import hàm nhận diện loại thuốc
 import { getMedTerminology } from '../utils/helpers'; 
 
 import { ConfirmDoseModal } from '../components/Modals/ConfirmDoseModal';
@@ -38,7 +37,6 @@ export default function PatientHomeScreen() {
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   
-  // State quản lý Modals
   const [isSymptomModalVisible, setSymptomModalVisible] = useState(false);
   const [isLogModalVisible, setLogModalVisible] = useState(false);
   const [isSosModalVisible, setSosModalVisible] = useState(false);
@@ -50,7 +48,6 @@ export default function PatientHomeScreen() {
   const [toastVisible, setToastVisible] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  // Đồng hồ chạy lùi
   useEffect(() => {
     let timer: any;
     if (cooldown > 0) {
@@ -59,7 +56,6 @@ export default function PatientHomeScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // 🔥 1. THAY HÀM FETCH: Gom nhóm và tạo mảng TimeArray 🔥
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
@@ -72,7 +68,6 @@ export default function PatientHomeScreen() {
           complete: async (results) => {
             let rawMeds = results.data.filter((item: any) => item.PatientsID === patientId);
             
-            // --- THUẬT TOÁN GOM NHÓM TẠO BONG BÓNG ---
             let groupedMeds = rawMeds.map(med => {
               const times = med.Time ? med.Time.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
               return { ...med, timeArray: times }; 
@@ -107,7 +102,63 @@ export default function PatientHomeScreen() {
   useFocusEffect(useCallback(() => { fetchMedications(); fetchHistoryLogs(true); }, [patientId]));
   const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); fetchHistoryLogs(true); }, [patientId]);
 
-  // XỬ LÝ LOG DÙNG THUỐC
+
+  // 🔥 THUẬT TOÁN TÍNH THANH TIẾN ĐỘ & TÌM LIỀU THEO GIỜ THỰC TẾ 🔥
+  const dashboardStats = useMemo(() => {
+    const today = new Date();
+    const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const todayTakenLogs = historyLogs.filter(log => log.Status === 'Đã sử dụng' && (log.Timestamp && log.Timestamp.includes(todayStr)));
+    const takenKeys = todayTakenLogs.map(log => `${log.MedicineName}-${log.PlannedTime}`);
+    
+    let totalDoses = 0;
+    let completedDoses = 0;
+    let allPendingDoses: any[] = [];
+
+    medications.forEach(med => {
+      if (med.timeArray) {
+        med.timeArray.forEach((time: string) => {
+          totalDoses++; 
+          const key = `${med.MedicineName}-${time}`;
+          if (takenKeys.includes(key)) {
+            completedDoses++; 
+          } else {
+            allPendingDoses.push({ ...med, Time: time }); 
+          }
+        });
+      }
+    });
+
+    allPendingDoses.sort((a, b) => a.Time.localeCompare(b.Time));
+
+    // Lọc theo giờ thực tế
+    const currentMinutes = today.getHours() * 60 + today.getMinutes();
+    let nextDose = null;
+
+    if (allPendingDoses.length > 0) {
+      const upcomingDoses = allPendingDoses.filter(med => {
+        const [h, m] = med.Time.split(':').map(Number);
+        const doseMinutes = h * 60 + m;
+        return doseMinutes >= currentMinutes - 60; // Chỉ lấy những cữ từ (hiện tại - 60p) trở đi
+      });
+
+      if (upcomingDoses.length > 0) {
+        nextDose = upcomingDoses[0];
+      } else {
+        nextDose = allPendingDoses[allPendingDoses.length - 1];
+      }
+    }
+
+    return {
+      total: totalDoses, 
+      completed: completedDoses, 
+      progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
+      nextDose,
+      allPending: allPendingDoses
+    };
+  }, [medications, historyLogs]);
+
+
+  // 🔥 HÀM SUBMIT LOG (CẬP NHẬT KHOẢNG NGHỈ THÔNG MINH) 🔥
   const submitLog = async (newStatus: string) => {
     setIsLogging(true);
     const logPayload = { action: 'add', sheetName: 'Log', data: { PatientsID: patientId, MedicineName: selectedMed.MedicineName, PlannedTime: selectedMed.Time, Action: 'Bệnh nhân tự xác nhận', Status: newStatus } };
@@ -118,7 +169,18 @@ export default function PatientHomeScreen() {
           if (newStatus === 'Đã sử dụng') {
              const terms = getMedTerminology(selectedMed);
              if (terms.action === 'nhỏ' || terms.action === 'tra') {
-                 setCooldown(600); 
+                 
+                 // Kiểm tra xem có thuốc nhỏ mắt nào khác chưa nhỏ cùng giờ không
+                 const otherPendingEyeDrops = dashboardStats.allPending.filter(
+                     (med: any) =>
+                         med.Time === selectedMed.Time && 
+                         med.MedicineName !== selectedMed.MedicineName &&
+                         (getMedTerminology(med).action === 'nhỏ' || getMedTerminology(med).action === 'tra')
+                 );
+                 
+                 if (otherPendingEyeDrops.length > 0) {
+                     setCooldown(600); // Kích hoạt 10 phút nếu còn thuốc khác
+                 }
              }
           }
           setLogModalVisible(false); setToastVisible(true); fetchHistoryLogs(true); 
@@ -127,7 +189,7 @@ export default function PatientHomeScreen() {
     } catch (error) { Alert.alert('Lỗi mạng', 'Vui lòng kiểm tra kết nối.'); } finally { setIsLogging(false); }
   };
 
-  // XỬ LÝ GỬI TRIỆU CHỨNG 
+
   const submitSymptoms = async (symptoms: string) => {
     setIsLogging(true);
     const logPayload = { 
@@ -163,42 +225,6 @@ export default function PatientHomeScreen() {
     ]);
   };
 
-  // 🔥 2. THAY THẾ LOGIC TÍNH THANH TIẾN ĐỘ THEO BONG BÓNG 🔥
-  const dashboardStats = useMemo(() => {
-    const today = new Date();
-    const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    const todayTakenLogs = historyLogs.filter(log => log.Status === 'Đã sử dụng' && (log.Timestamp && log.Timestamp.includes(todayStr)));
-    const takenKeys = todayTakenLogs.map(log => `${log.MedicineName}-${log.PlannedTime}`);
-    
-    let totalDoses = 0;
-    let completedDoses = 0;
-    let allPendingDoses: any[] = [];
-
-    medications.forEach(med => {
-      if (med.timeArray) {
-        med.timeArray.forEach((time: string) => {
-          totalDoses++; 
-          const key = `${med.MedicineName}-${time}`;
-          if (takenKeys.includes(key)) {
-            completedDoses++; 
-          } else {
-            allPendingDoses.push({ ...med, Time: time }); 
-          }
-        });
-      }
-    });
-
-    allPendingDoses.sort((a, b) => a.Time.localeCompare(b.Time));
-    const nextDose = allPendingDoses.length > 0 ? allPendingDoses[0] : null;
-
-    return {
-      total: totalDoses, 
-      completed: completedDoses, 
-      progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
-      nextDose
-    };
-  }, [medications, historyLogs]);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       {loading ? (
@@ -225,8 +251,6 @@ export default function PatientHomeScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
-          
-          // 🔥 3. THAY THẾ RENDER: GỌI MEDCARD THEO KIỂU MỚI 🔥
           renderItem={({ item }) => {
             return (
               <MedCardItem 
