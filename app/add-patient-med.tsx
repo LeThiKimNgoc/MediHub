@@ -27,11 +27,11 @@ export default function AddPatientMedScreen() {
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
   const [loadingData, setLoadingData] = useState(true); 
 
-  // 🔥 ĐÃ THÊM TRƯỜNG DURATION VÀO FORM 🔥
   const [formData, setFormData] = useState({
-    sheetName: 'Log', // Nhớ đẩy về đúng nhà mới là Log nhé
+    sheetName: 'Log', 
     PatientsID: params.id || '', 
     MedicineName: '', 
+    ImageUrl: '', // 🔥 THÊM CHỖ CHỨA LINK ẢNH
     Time: [] as string[], 
     Reminder_mode: 'Bật',
     Status: 'Chưa sử dụng', 
@@ -39,7 +39,7 @@ export default function AddPatientMedScreen() {
     DoseAmount: '', 
     DoseUnit: 'giọt', 
     Usage: '',
-    Duration: '' // Dữ liệu lưu số ngày
+    Duration: '' 
   });
 
   const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'cái'];
@@ -56,25 +56,28 @@ export default function AddPatientMedScreen() {
       fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMedicine}&t=${t}`).then(res => res.text())
     ]).then(([csvUsage, csvMedicine]) => {
       Papa.parse(csvUsage, { header: true, skipEmptyLines: true, complete: (results) => setUsageOptions(results.data.map((i: any) => i.Usage).filter(Boolean)) });
-      Papa.parse(csvMedicine, { header: true, skipEmptyLines: true, complete: (results) => setMedicineOptions(results.data.map((i: any) => ({ name: i.MedicineName, use: i.Use })).filter(m => m.name)) });
+      Papa.parse(csvMedicine, { 
+        header: true, skipEmptyLines: true, 
+        complete: (results) => setMedicineOptions(results.data.map((i: any) => ({ 
+          name: i.MedicineName, 
+          use: i.Use,
+          imageUrl: i.ImageUrl // 🔥 ĐỌC LINK ẢNH TỪ KHO D&C
+        })).filter(m => m.name)) 
+      });
       setLoadingData(false);
     }).catch(e => setLoadingData(false));
   }, []);
 
-  // 🔥 THUẬT TOÁN TỰ ĐỘNG TÍNH SỐ NGÀY DÙNG 🔥
   useEffect(() => {
-    // Chỉ tự tính nếu đơn vị là 'viên'
     if (formData.DoseUnit === 'viên') {
-      const qty = parseFloat(formData.Quantity); // Tổng số lượng
-      const dose = parseFloat(formData.DoseAmount.replace(',', '.')); // Liều lượng mỗi lần (vd 1, 0.5)
-      const freq = formData.Time.length; // Tần suất (số lần uống trong ngày)
+      const qty = parseFloat(formData.Quantity); 
+      const dose = parseFloat(formData.DoseAmount.replace(',', '.')); 
+      const freq = formData.Time.length; 
 
       if (qty && dose && freq) {
-        // Làm tròn xuống (ví dụ 10.5 ngày thì ghi 10)
         const days = Math.floor(qty / (dose * freq)); 
         setFormData(prev => ({ ...prev, Duration: days.toString() }));
       } else {
-        // Nếu xóa trắng thì xóa Duration
         setFormData(prev => ({ ...prev, Duration: '' }));
       }
     }
@@ -91,7 +94,8 @@ export default function AddPatientMedScreen() {
     else if (useText.includes('tra mắt')) { autoUnit = 'cm'; autoAmount = '0,5-1'; }
     else if (useText.includes('ngoài')) autoUnit = 'cái';
 
-    setFormData({ ...formData, MedicineName: med.name, DoseUnit: autoUnit, DoseAmount: autoAmount });
+    // 🔥 GÁN LINK ẢNH VÀO FORM ĐỂ GỬI LÊN MÂY
+    setFormData({ ...formData, MedicineName: med.name, ImageUrl: med.imageUrl || '', DoseUnit: autoUnit, DoseAmount: autoAmount });
     setMedicinePickerVisible(false);
   };
 
@@ -123,17 +127,13 @@ export default function AddPatientMedScreen() {
     };
 
     try {
-      const response = await fetch(scriptUrl, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
       const textResult = await response.text();
       try {
         const result = JSON.parse(textResult);
         if (result.status === 'success') {
           setToastVisible(true);
-          setFormData({ ...formData, MedicineName: '', Time: [], Quantity: '', DoseAmount: '', Usage: '', Duration: '' }); 
+          setFormData({ ...formData, MedicineName: '', ImageUrl: '', Time: [], Quantity: '', DoseAmount: '', Usage: '', Duration: '' }); 
           setTimeout(() => setToastVisible(false), 3000);
         } else Alert.alert('Lỗi hệ thống', result.message);
       } catch (e) { Alert.alert('Lỗi Máy Chủ', 'Apps Script đang bị lỗi.'); }
@@ -153,7 +153,12 @@ export default function AddPatientMedScreen() {
               <ScrollView style={{ width: '100%', marginBottom: 15 }}>
                 {medicineOptions.map((med, idx) => (
                   <TouchableOpacity key={idx} style={styles.medicineListItem} onPress={() => handleSelectMedicine(med)}>
-                    <MaterialCommunityIcons name="pill" size={24} color={colors.primary} style={{ marginRight: 15 }} />
+                    {/* Hiển thị luôn ảnh thu nhỏ trong danh sách chọn thuốc nếu có */}
+                    {med.imageUrl ? (
+                        <Image source={{uri: med.imageUrl}} style={{width: 30, height: 30, borderRadius: 8, marginRight: 12}} />
+                    ) : (
+                        <MaterialCommunityIcons name="pill" size={24} color={colors.primary} style={{ marginRight: 15 }} />
+                    )}
                     <View style={{flex: 1}}><Text style={styles.medicineListText}>{med.name}</Text><Text style={{fontSize: 12, color: colors.textLight}}>{med.use || 'Chưa phân loại'}</Text></View>
                   </TouchableOpacity>
                 ))}
@@ -170,47 +175,23 @@ export default function AddPatientMedScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Chọn Giờ Uống Thuốc</Text>
             <View style={styles.pickerContainer}>
-              
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerHeader}>Giờ</Text>
-                <ScrollView 
-                  showsVerticalScrollIndicator={Platform.OS === 'web'} 
-                  style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} 
-                  contentContainerStyle={styles.scrollContent}
-                >
+                <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'} style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} contentContainerStyle={styles.scrollContent}>
                   {HOURS.map(h => (
-                    <TouchableOpacity 
-                      key={h} 
-                      onPress={() => setSelectedHour(h)} 
-                      style={[styles.pickerItem, selectedHour === h && styles.pickerItemActive]}
-                    >
-                      <Text style={[styles.pickerText, selectedHour === h && styles.pickerTextActive]}>{h}</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity key={h} onPress={() => setSelectedHour(h)} style={[styles.pickerItem, selectedHour === h && styles.pickerItemActive]}><Text style={[styles.pickerText, selectedHour === h && styles.pickerTextActive]}>{h}</Text></TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
-
               <Text style={styles.pickerSeparator}>:</Text>
-
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerHeader}>Phút</Text>
-                <ScrollView 
-                  showsVerticalScrollIndicator={Platform.OS === 'web'}
-                  style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} 
-                  contentContainerStyle={styles.scrollContent}
-                >
+                <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'} style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} contentContainerStyle={styles.scrollContent}>
                   {MINUTES.map(m => (
-                    <TouchableOpacity 
-                      key={m} 
-                      onPress={() => setSelectedMinute(m)} 
-                      style={[styles.pickerItem, selectedMinute === m && styles.pickerItemActive]}
-                    >
-                      <Text style={[styles.pickerText, selectedMinute === m && styles.pickerTextActive]}>{m}</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity key={m} onPress={() => setSelectedMinute(m)} style={[styles.pickerItem, selectedMinute === m && styles.pickerItemActive]}><Text style={[styles.pickerText, selectedMinute === m && styles.pickerTextActive]}>{m}</Text></TouchableOpacity>
                   ))}
                 </ScrollView>
               </View>
-
             </View>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setTimePickerVisible(false)}><Text style={styles.modalBtnCancelText}>HỦY</Text></TouchableOpacity>
@@ -224,12 +205,9 @@ export default function AddPatientMedScreen() {
 
       <View style={styles.appHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} /></TouchableOpacity>
-        
-        {/* Lô-gô xịn xò của bạn */}
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
         </View>
-
         <View><Text style={styles.headerTitle}>Gán Thuốc Mới</Text><Text style={styles.subTitle}>Cho BN: {params.name} ({params.id})</Text></View>
       </View>
 
@@ -257,7 +235,7 @@ export default function AddPatientMedScreen() {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Liều Lượng 1 Lần (*)</Text>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-            <TextInput style={[styles.input, {flex: 0.4, textAlign: 'center'}]} placeholder="Vd: 1, 2" keyboardType="default" placeholderTextColor={colors.textLight} value={formData.DoseAmount} onChangeText={(text) => handleChange('DoseAmount', text)} outlineStyle="none" />
+            <TextInput style={[styles.input, {flex: 0.4, textAlign: 'center', outlineStyle: 'none' as any}]} placeholder="Vd: 1, 2" keyboardType="default" placeholderTextColor={colors.textLight} value={formData.DoseAmount} onChangeText={(text) => handleChange('DoseAmount', text)} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}}>
               <View style={[styles.chipsContainer, {flexWrap: 'nowrap'}]}>
                 {unitOptions.map((unit, i) => (
@@ -280,7 +258,7 @@ export default function AddPatientMedScreen() {
         </View>
 
         <View style={{flexDirection: 'row', gap: 15}}>
-          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Cấp Số Lượng Tổng</Text><TextInput style={styles.input} placeholder="Vd: 30" placeholderTextColor={colors.textLight} value={formData.Quantity} onChangeText={(text) => handleChange('Quantity', text)} keyboardType="numeric" outlineStyle="none" /></View>
+          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Cấp Số Lượng Tổng</Text><TextInput style={[styles.input, {outlineStyle: 'none' as any}]} placeholder="Vd: 30" placeholderTextColor={colors.textLight} value={formData.Quantity} onChangeText={(text) => handleChange('Quantity', text)} keyboardType="numeric" /></View>
           <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Nhắc nhở (App)</Text>
             <View style={styles.chipsContainer}>
               {reminderOptions.map((opt, i) => <TouchableOpacity key={i} style={[styles.chip, formData.Reminder_mode === opt ? styles.chipSelected : null]} onPress={() => handleChange('Reminder_mode', opt)}><Text style={[styles.chipText, formData.Reminder_mode === opt ? styles.chipTextSelected : null]}>{opt}</Text></TouchableOpacity>)}
@@ -288,17 +266,15 @@ export default function AddPatientMedScreen() {
           </View>
         </View>
 
-        {/* 🔥 Ô HIỂN THỊ SỐ NGÀY DÙNG 🔥 */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Thời Gian Sử Dụng (Ngày)</Text>
           <TextInput 
-            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#F0FDF4' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#86EFAC' : '#E0E0E0' }]} 
+            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#F0FDF4' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#86EFAC' : '#E0E0E0', outlineStyle: 'none' as any }]} 
             placeholder="Nhập số ngày hoặc tự tính..." 
             placeholderTextColor={colors.textLight} 
             value={formData.Duration} 
             onChangeText={(text) => handleChange('Duration', text)} 
             keyboardType="numeric"
-            outlineStyle="none"
           />
           {formData.DoseUnit === 'viên' && <Text style={{fontSize: 12, color: '#059669', marginTop: 5, fontStyle: 'italic'}}>* Hệ thống đang tự động tính số ngày dựa trên liều lượng.</Text>}
         </View>

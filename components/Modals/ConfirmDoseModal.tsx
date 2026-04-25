@@ -1,9 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, Image } from 'react-native'; // 🔥 Import thêm Image
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../constants/theme';
-// Import thêm getMedTerminology
-import { getEyeIndicator, getMedTerminology } from '../../utils/helpers'; 
+// 🔥 Import thêm getMedIcon để làm phương án dự phòng (fallback)
+import { getEyeIndicator, getMedTerminology, getMedIcon } from '../../utils/helpers'; 
 
 interface ConfirmDoseModalProps {
   visible: boolean;
@@ -25,11 +25,19 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            {/* Chữ trên tiêu đề cũng tự đổi theo thuật ngữ */}
             <Text style={styles.modalTitle}>Xác Nhận {terms.btn}</Text>
           </View>
           
           <View style={styles.medInfoBox}>
+            {/* 🔥 KHỐI HIỂN THỊ ẢNH HOẶC ICON THUỐC 🔥 */}
+            <View style={styles.imageContainer}>
+              {med.ImageUrl ? (
+                <Image source={{ uri: med.ImageUrl }} style={styles.medImage} resizeMode="cover" />
+              ) : (
+                <MaterialCommunityIcons name={getMedIcon(med) as any} size={50} color={colors.primary} />
+              )}
+            </View>
+
             <Text style={styles.medNameModal}>{med.MedicineName}</Text>
             <Text style={styles.medTimeModal}>Giờ hẹn: {med.Time}</Text> 
             {eyeInfo && (
@@ -45,12 +53,10 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
             <View style={styles.logActions}>
               <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusDone}]} onPress={() => onSubmit('Đã sử dụng')}>
                 <MaterialCommunityIcons name="check-circle" size={36} color="white" />
-                {/* Đổi chữ ở đây */}
                 <Text style={styles.logBtnText}>Đã {terms.btn}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusSnooze}]} onPress={() => onSubmit('Nhắc lại')}>
                 <MaterialCommunityIcons name="alarm-snooze" size={36} color="white" />
-                {/* Và ở đây */}
                 <Text style={styles.logBtnText}>Chưa {terms.btn}</Text>
               </TouchableOpacity>
             </View>
@@ -70,9 +76,14 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
 const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: 'white', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 30 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 }, // Thu nhỏ margin một chút
   modalTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textDark },
   medInfoBox: { backgroundColor: '#F8FAFC', borderRadius: 20, padding: 25, alignItems: 'center', marginBottom: 30, borderWidth: 1, borderColor: '#E2E8F0' },
+  
+  // 🔥 Thêm CSS cho khối hình ảnh
+  imageContainer: { width: 90, height: 90, borderRadius: 24, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginBottom: 15, overflow: 'hidden', borderWidth: 2, borderColor: 'white', elevation: 2 },
+  medImage: { width: '100%', height: '100%' },
+  
   medNameModal: { fontSize: 24, fontWeight: 'bold', color: colors.primary, marginBottom: 10, textAlign: 'center' },
   medTimeModal: { fontSize: 18, color: colors.timeColor, fontWeight: 'bold', marginBottom: 5 },
   eyeBadge: { alignSelf: 'center', marginVertical: 8, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },

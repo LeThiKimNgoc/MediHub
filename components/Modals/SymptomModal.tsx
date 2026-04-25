@@ -37,44 +37,72 @@ export const SymptomModal: React.FC<SymptomModalProps> = ({ visible, isLogging, 
     <Modal visible={visible} transparent={true} animationType="slide">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
+          <View style={styles.indicator} />
+          
           <View style={styles.modalHeader}>
-            <MaterialCommunityIcons name="clipboard-pulse" size={32} color="#EF4444" style={{marginRight: 10}} />
-            <Text style={styles.modalTitle}>Nhật ký triệu chứng</Text>
+            <View style={styles.iconCircle}>
+              <MaterialCommunityIcons name="clipboard-pulse-outline" size={28} color="white" />
+            </View>
+            <View>
+              <Text style={styles.modalTitle}>Nhật Ký Triệu Chứng</Text>
+              <Text style={styles.subtitle}>Theo dõi sức khỏe mắt hàng ngày</Text>
+            </View>
           </View>
           
-          <Text style={styles.subtitle}>Hôm nay mắt bạn cảm thấy thế nào? (Có thể chọn nhiều)</Text>
+          <Text style={styles.questionText}>Hôm nay mắt bạn cảm thấy thế nào?</Text>
 
-          <ScrollView contentContainerStyle={styles.chipContainer}>
-            {SYMPTOMS_LIST.map((symptom, index) => {
-              const isSelected = selected.includes(symptom);
-              return (
-                <TouchableOpacity 
-                  key={index} 
-                  style={[styles.chip, isSelected && styles.chipSelected]} 
-                  onPress={() => toggleSymptom(symptom)}
-                >
-                  <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{symptom}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <View style={styles.scrollWrapper}>
+            <ScrollView 
+              contentContainerStyle={styles.chipContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {SYMPTOMS_LIST.map((symptom, index) => {
+                const isSelected = selected.includes(symptom);
+                return (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[styles.chip, isSelected && styles.chipSelected]} 
+                    onPress={() => toggleSymptom(symptom)}
+                    activeOpacity={0.6}
+                  >
+                    <MaterialCommunityIcons 
+                      name={isSelected ? "check-circle" : "plus-circle-outline"} 
+                      size={18} 
+                      color={isSelected ? "#B91C1C" : "#94A3B8"} 
+                      style={{marginRight: 6}}
+                    />
+                    <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>{symptom}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
 
-          {isLogging ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{marginVertical: 20}} />
-          ) : (
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-              <MaterialCommunityIcons name="send-check" size={24} color="white" />
-              <Text style={styles.submitBtnText}>
-                {selected.length === 0 ? 'TÔI CẢM THẤY BÌNH THƯỜNG' : 'GỬI TÌNH TRẠNG'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.footer}>
+            {isLogging ? (
+              <ActivityIndicator size="large" color="#EF4444" style={{marginVertical: 10}} />
+            ) : (
+              <TouchableOpacity 
+                style={[styles.submitBtn, { backgroundColor: selected.length === 0 ? '#10B981' : '#EF4444' }]} 
+                onPress={handleSubmit}
+              >
+                <MaterialCommunityIcons 
+                  name={selected.length === 0 ? "emoticon-happy-outline" : "send-check"} 
+                  size={24} 
+                  color="white" 
+                />
+                <Text style={styles.submitBtnText}>
+                  {selected.length === 0 ? 'MẮT TÔI BÌNH THƯỜNG' : 'GỬI BÁO CÁO NGAY'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
-          {!isLogging && (
-            <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
-              <Text style={{color: colors.textLight, fontWeight: 'bold', fontSize: 16}}>ĐÓNG</Text>
-            </TouchableOpacity>
-          )}
+            {!isLogging && (
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={onClose}>
+                <Text style={styles.cancelText}>ĐÓNG</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </Modal>
@@ -82,17 +110,50 @@ export const SymptomModal: React.FC<SymptomModalProps> = ({ visible, isLogging, 
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: 'white', width: '90%', borderRadius: 24, padding: 25, elevation: 10, maxHeight: '80%' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { 
+    backgroundColor: 'white', 
+    width: '100%', 
+    borderTopLeftRadius: 35, 
+    borderTopRightRadius: 35, 
+    padding: 25, 
+    maxHeight: '85%' 
+  },
+  indicator: { width: 40, height: 5, backgroundColor: '#E2E8F0', borderRadius: 10, alignSelf: 'center', marginBottom: 20 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 15 },
+  iconCircle: { width: 50, height: 50, borderRadius: 15, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center' },
   modalTitle: { fontSize: 22, fontWeight: 'bold', color: colors.textDark },
-  subtitle: { fontSize: 15, color: colors.textLight, marginBottom: 20, fontStyle: 'italic' },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingBottom: 20 },
-  chip: { paddingVertical: 10, paddingHorizontal: 16, backgroundColor: '#F1F5F9', borderRadius: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  subtitle: { fontSize: 14, color: colors.textLight, marginTop: 2 },
+  questionText: { fontSize: 16, color: colors.textDark, fontWeight: '600', marginBottom: 15, marginLeft: 5 },
+  scrollWrapper: { maxHeight: 300, marginBottom: 20 },
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingVertical: 5 },
+  chip: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12, 
+    paddingHorizontal: 16, 
+    backgroundColor: '#F8FAFC', 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: '#E2E8F0' 
+  },
   chipSelected: { backgroundColor: '#FEE2E2', borderColor: '#EF4444' },
-  chipText: { color: colors.textDark, fontSize: 15, fontWeight: '500' },
+  chipText: { color: '#64748B', fontSize: 15, fontWeight: '500' },
   chipTextSelected: { color: '#B91C1C', fontWeight: 'bold' },
-  submitBtn: { backgroundColor: '#EF4444', flexDirection: 'row', padding: 16, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  submitBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
-  modalBtnCancel: { marginTop: 20, padding: 10, alignItems: 'center' },
+  footer: { marginTop: 5 },
+  submitBtn: { 
+    flexDirection: 'row', 
+    padding: 18, 
+    borderRadius: 20, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3
+  },
+  submitBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
+  modalBtnCancel: { marginTop: 15, padding: 10, alignItems: 'center' },
+  cancelText: { color: colors.textLight, fontWeight: 'bold', fontSize: 16 },
 });
