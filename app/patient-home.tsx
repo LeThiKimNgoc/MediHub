@@ -59,7 +59,7 @@ export default function PatientHomeScreen() {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  // 🔥 1. THAY THẾ HÀM TẢI THUỐC (TÁCH CỮ GIỜ) 🔥
+  // 🔥 1. THAY HÀM FETCH: Gom nhóm và tạo mảng TimeArray 🔥
   const fetchMedications = async (isRefreshing = false) => {
     if (!isRefreshing) {
       const cachedMeds = await AsyncStorage.getItem(`@cached_meds_${patientId}`);
@@ -72,25 +72,14 @@ export default function PatientHomeScreen() {
           complete: async (results) => {
             let rawMeds = results.data.filter((item: any) => item.PatientsID === patientId);
             
-            // --- THUẬT TOÁN TÁCH CỮ THUỐC ---
-            let splitMeds: any[] = [];
-            rawMeds.forEach(med => {
-              if (med.Time) {
-                // Tách chuỗi giờ bằng dấu phẩy
-                const timesArray = med.Time.split(',').map((t: string) => t.trim());
-                timesArray.forEach((t: string) => {
-                  if (t) splitMeds.push({ ...med, Time: t, originalTimes: med.Time });
-                });
-              } else {
-                splitMeds.push(med); 
-              }
+            // --- THUẬT TOÁN GOM NHÓM TẠO BONG BÓNG ---
+            let groupedMeds = rawMeds.map(med => {
+              const times = med.Time ? med.Time.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
+              return { ...med, timeArray: times }; 
             });
 
-            // Sắp xếp lại theo giờ từ sáng đến tối
-            splitMeds.sort((a, b) => (a.Time || "").localeCompare(b.Time || ""));
-            
-            setMedications(splitMeds); 
-            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(splitMeds)); 
+            setMedications(groupedMeds); 
+            await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(groupedMeds)); 
             setLoading(false); setRefreshing(false);
           }
         });
@@ -174,28 +163,38 @@ export default function PatientHomeScreen() {
     ]);
   };
 
-  // 🔥 2. THAY THẾ LOGIC TÍNH THANH TIẾN ĐỘ 🔥
+  // 🔥 2. THAY THẾ LOGIC TÍNH THANH TIẾN ĐỘ THEO BONG BÓNG 🔥
   const dashboardStats = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    
     const todayTakenLogs = historyLogs.filter(log => log.Status === 'Đã sử dụng' && (log.Timestamp && log.Timestamp.includes(todayStr)));
     const takenKeys = todayTakenLogs.map(log => `${log.MedicineName}-${log.PlannedTime}`);
     
-    let completedCount = 0;
+    let totalDoses = 0;
+    let completedDoses = 0;
+    let allPendingDoses: any[] = [];
+
     medications.forEach(med => {
-      if (takenKeys.includes(`${med.MedicineName}-${med.Time}`)) {
-        completedCount++;
+      if (med.timeArray) {
+        med.timeArray.forEach((time: string) => {
+          totalDoses++; 
+          const key = `${med.MedicineName}-${time}`;
+          if (takenKeys.includes(key)) {
+            completedDoses++; 
+          } else {
+            allPendingDoses.push({ ...med, Time: time }); 
+          }
+        });
       }
     });
 
-    const remainingMeds = medications.filter(med => !takenKeys.includes(`${med.MedicineName}-${med.Time}`));
-    const nextDose = remainingMeds.length > 0 ? remainingMeds[0] : null;
+    allPendingDoses.sort((a, b) => a.Time.localeCompare(b.Time));
+    const nextDose = allPendingDoses.length > 0 ? allPendingDoses[0] : null;
 
     return {
-      total: medications.length, 
-      completed: completedCount, 
-      progressPercent: medications.length > 0 ? (completedCount / medications.length) * 100 : 0,
+      total: totalDoses, 
+      completed: completedDoses, 
+      progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
       nextDose
     };
   }, [medications, historyLogs]);
@@ -227,15 +226,18 @@ export default function PatientHomeScreen() {
           contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />}
           
-          // 🔥 3. THAY THẾ LOGIC TÔ MÀU 1 THẺ DUY NHẤT 🔥
+          // 🔥 3. THAY THẾ RENDER: GỌI MEDCARD THEO KIỂU MỚI 🔥
           renderItem={({ item }) => {
-            const isDoneToday = historyLogs.some(log => 
-              log.MedicineName === item.MedicineName && 
-              log.PlannedTime === item.Time && 
-              log.Status === 'Đã sử dụng' && 
-              log.Timestamp?.includes(new Date().getDate().toString().padStart(2, '0'))
+            return (
+              <MedCardItem 
+                item={item} 
+                historyLogs={historyLogs} 
+                onPressTime={(med, time) => { 
+                  setSelectedMed({...med, Time: time}); 
+                  setLogModalVisible(true); 
+                }} 
+              />
             );
-            return <MedCardItem item={item} isDoneToday={isDoneToday} onPress={() => { setSelectedMed(item); setLogModalVisible(true); }} />;
           }}
         />
       )}
