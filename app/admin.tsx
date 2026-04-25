@@ -41,32 +41,49 @@ export default function AdminScreen() {
     setCurrentDate(date.toLocaleDateString('vi-VN', options));
   }, []);
 
+  // 🔥 ĐÃ THAY THẾ HÀM TẢI DỮ LIỆU MỚI ĐỂ ĐẾM ĐÚNG BỆNH NHÂN 🔥
   const fetchStats = () => {
     setLoading(true);
     const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
     const gidSynthetic = '297712298'; 
+    const gidPatients = '0'; // GID của tab Bệnh nhân
     
-    // 🔥 ĐÃ THÊM THẦN CHÚ CHỐNG LƯU CACHE Ở CUỐI LINK 🔥
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}&t=${new Date().getTime()}`;
+    const t = new Date().getTime();
+    const urlSynthetic = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}&t=${t}`;
+    const urlPatients = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidPatients}&t=${t}`;
 
-    fetch(csvUrl, { cache: 'no-store' }) // Thêm cache: 'no-store' cho chắc ăn 100%
-      .then(res => res.text())
-      .then(csvText => {
-        Papa.parse(csvText, {
-          header: true, skipEmptyLines: true,
-          complete: (results) => {
-            if (results.data.length > 0) {
-              const data = results.data[0]; 
-              setStats({ 
-                totalPatients: data.Total_Patients || 0, 
-                adherenceRate: data.Average_Adherence || '0%', 
-                totalReminders: data.Total_Reminders || 0 
-              });
-            }
-            setLoading(false);
-          }
-        });
-      }).catch(() => setLoading(false));
+    // Gọi song song cả 2 bảng: Lấy Analytics và Lấy số lượng Bệnh nhân thực tế
+    Promise.all([
+      fetch(urlSynthetic, { cache: 'no-store' }).then(res => res.text()),
+      fetch(urlPatients, { cache: 'no-store' }).then(res => res.text())
+    ]).then(([csvSynthetic, csvPatients]) => {
+      
+      let realPatientCount = 0;
+
+      // 1. Đếm số lượng bệnh nhân thực tế từ tab Patients
+      Papa.parse(csvPatients, {
+        header: true, skipEmptyLines: true,
+        complete: (results) => {
+          realPatientCount = results.data.length;
+        }
+      });
+
+      // 2. Lấy các chỉ số báo cáo khác từ tab Synthetic
+      Papa.parse(csvSynthetic, {
+        header: true, skipEmptyLines: true,
+        complete: (results) => {
+          let data = results.data.length > 0 ? results.data[0] : {}; 
+          setStats({ 
+            // 🔥 Ghi đè số lượng bệnh nhân bằng con số thực tế vừa đếm được 🔥
+            totalPatients: realPatientCount, 
+            adherenceRate: data.Average_Adherence || '0%', 
+            totalReminders: data.Total_Reminders || 0 
+          });
+          setLoading(false);
+        }
+      });
+
+    }).catch(() => setLoading(false));
   };
 
   useFocusEffect(useCallback(() => { if (isMounted) fetchStats(); }, [isMounted]));
