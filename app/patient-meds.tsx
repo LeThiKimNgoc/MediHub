@@ -24,7 +24,6 @@ export default function PatientMedsScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; 
 
-  // URL Web App
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
   
   const handleLogout = () => {
@@ -42,7 +41,6 @@ export default function PatientMedsScreen() {
     const gidRemind = '2073748495'; 
     const gidLog = '1373475002'; 
     
-    // 🔥 ĐÃ SỬA: Gắn "thần chú" chống Cache cho cả 2 luồng tải dữ liệu 🔥
     const t = new Date().getTime();
 
     Promise.all([
@@ -96,7 +94,6 @@ export default function PatientMedsScreen() {
     const executeDelete = async () => {
       setLoading(true);
       try {
-        // 🔥 ĐÃ SỬA: Gửi "Kiềng 3 chân" lên máy chủ thay vì ID 🔥
         const payload = { 
           action: 'deleteRemind', 
           PatientsID: patientId,
@@ -182,14 +179,24 @@ export default function PatientMedsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
+      {/* 🔥 CẬP NHẬT: MODAL HIỂN THỊ HÌNH ẢNH THUỐC 🔥 */}
       <Modal visible={isLogModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Xác Nhận Sử Dụng (Log)</Text>
+            <Text style={styles.modalTitle}>Xác Nhận Thay Bệnh Nhân</Text>
             {selectedMed && (
-              <View style={{alignItems: 'center', marginBottom: 20}}>
-                <Text style={{fontSize: 18, fontWeight: 'bold', color: colors.textDark, textAlign: 'center'}}>{selectedMed.MedicineName}</Text>
-                <Text style={{fontSize: 14, color: colors.textLight, marginTop: 5}}>Giờ quy định: <Text style={{fontWeight: 'bold', color: '#E65100'}}>{selectedMed.Time}</Text></Text>
+              <View style={{alignItems: 'center', marginBottom: 25}}>
+                
+                <View style={styles.modalImageContainer}>
+                  {selectedMed.ImageUrl ? (
+                    <Image source={{ uri: selectedMed.ImageUrl }} style={styles.modalMedImage} resizeMode="cover" />
+                  ) : (
+                    <MaterialCommunityIcons name="pill" size={40} color={colors.primary} />
+                  )}
+                </View>
+
+                <Text style={{fontSize: 20, fontWeight: 'bold', color: colors.textDark, textAlign: 'center'}}>{selectedMed.MedicineName}</Text>
+                <Text style={{fontSize: 15, color: colors.textLight, marginTop: 5}}>Giờ quy định: <Text style={{fontWeight: 'bold', color: '#E65100'}}>{selectedMed.Time}</Text></Text>
               </View>
             )}
 
@@ -268,7 +275,19 @@ export default function PatientMedsScreen() {
                         <TouchableOpacity onPress={() => router.push({ pathname: '/edit-patient-med', params: item } as any)} style={[styles.deleteButton, { backgroundColor: '#FFF9C4' }]}><MaterialCommunityIcons name="pencil-outline" size={18} color="#F57F17" /></TouchableOpacity>
                         <TouchableOpacity onPress={() => deleteMedication(item.ID, item.MedicineName, item.Time)} style={styles.deleteButton}><MaterialCommunityIcons name="trash-can-outline" size={18} color="#D32F2F" /></TouchableOpacity>
                       </View>
-                      <Text style={[styles.dataCell, styles.boldText, { flex: 2 }]}>{item.MedicineName}</Text>
+                      
+                      {/* 🔥 CẬP NHẬT: THÊM THUMBNAIL VÀO CỘT TÊN THUỐC 🔥 */}
+                      <View style={[styles.dataCell, { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                         {item.ImageUrl ? (
+                             <Image source={{uri: item.ImageUrl}} style={{width: 32, height: 32, borderRadius: 8}} resizeMode="cover"/>
+                         ) : (
+                             <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center'}}>
+                                <MaterialCommunityIcons name="pill" size={18} color={colors.primary} />
+                             </View>
+                         )}
+                         <Text style={[styles.boldText, {flex: 1}]} numberOfLines={2}>{item.MedicineName}</Text>
+                      </View>
+
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center', fontWeight: 'bold', color: '#E65100' }]}>{item.Time}</Text>
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center' }]}>{item.Dose}</Text>
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center' }]}>{item.Quantity || '-'}</Text>
@@ -295,8 +314,14 @@ export default function PatientMedsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg }, centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
   loadingText: { marginTop: 15, fontSize: 16, color: colors.textLight, fontWeight: '500' }, modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.white, width: '90%', maxWidth: 420, borderRadius: 20, padding: 25, elevation: 10 }, modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, textAlign: 'center', marginBottom: 20 },
-  logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 20 }, logBtn: { flex: 1, paddingVertical: 18, borderRadius: 12, alignItems: 'center', elevation: 2 },
+  modalContent: { backgroundColor: colors.white, width: '90%', maxWidth: 420, borderRadius: 24, padding: 25, elevation: 10 }, 
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, textAlign: 'center', marginBottom: 20 },
+  
+  // Thêm style cho khung chứa ảnh trong Modal
+  modalImageContainer: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginBottom: 15, overflow: 'hidden', borderWidth: 2, borderColor: '#BAE6FD' },
+  modalMedImage: { width: '100%', height: '100%' },
+
+  logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 20 }, logBtn: { flex: 1, paddingVertical: 18, borderRadius: 16, alignItems: 'center', elevation: 2 },
   logBtnText: { color: colors.white, fontWeight: 'bold', fontSize: 14 }, modalBtnCancel: { paddingVertical: 14, alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 12 },
   toastContainer: { position: 'absolute', top: 30, right: 20, backgroundColor: colors.statusDone, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 5 },
   toastText: { color: colors.white, fontSize: 14, fontWeight: 'bold', marginLeft: 8 }, appHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 20, elevation: 4 },
@@ -308,7 +333,7 @@ const styles = StyleSheet.create({
   tableHeaderRow: { flexDirection: 'row', backgroundColor: colors.tableHeader }, headerCell: { paddingVertical: 16, paddingHorizontal: 10, color: colors.textDark, fontWeight: '700', fontSize: 14, borderRightWidth: 1, borderRightColor: 'rgba(0,0,0,0.05)', textAlign: 'left' },
   tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F0F0F0', alignItems: 'center' }, rowEven: { backgroundColor: colors.white }, rowOdd: { backgroundColor: '#F1F8E9' }, 
   dataCell: { paddingVertical: 14, paddingHorizontal: 10, color: colors.textDark, fontSize: 14, borderRightWidth: 1, borderRightColor: '#F0F0F0' }, boldText: { fontWeight: '600', color: colors.textDark },
-  statusBadge: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 20, elevation: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }, statusText: { color: colors.white, fontSize: 13, fontWeight: 'bold' },
-  deleteButton: { padding: 6, backgroundColor: colors.dangerPastel, borderRadius: 8 }, emptyContainer: { padding: 50, alignItems: 'center' }, emptyText: { color: colors.textLight, fontSize: 15, fontStyle: 'italic' },
+  statusBadge: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 16, elevation: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }, statusText: { color: colors.white, fontSize: 13, fontWeight: 'bold' },
+  deleteButton: { padding: 8, backgroundColor: colors.dangerPastel, borderRadius: 10 }, emptyContainer: { padding: 50, alignItems: 'center' }, emptyText: { color: colors.textLight, fontSize: 15, fontStyle: 'italic' },
   fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: colors.primary, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 }
 });

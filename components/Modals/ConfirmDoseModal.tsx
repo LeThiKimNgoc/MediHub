@@ -22,12 +22,12 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           
-          {/* HEADER: NÚT QUAY VỀ (CHO TRƯỜNG HỢP BẤM NHẦM THẺ) */}
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={onClose} style={styles.backBtn} disabled={isLogging}>
               <MaterialCommunityIcons name="arrow-left" size={26} color={colors.textDark} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Xác Nhận {terms.btn}</Text>
+            {/* Chuyển NHỎ THUỐC thành nhỏ thuốc */}
+            <Text style={styles.modalTitle}>Xác nhận {terms.btn.toLowerCase()}</Text>
           </View>
           
           <View style={styles.medInfoBox}>
@@ -56,23 +56,22 @@ export const ConfirmDoseModal: React.FC<ConfirmDoseModalProps> = ({ visible, med
           ) : (
             <View style={{ gap: 15 }}>
               <View style={styles.logActions}>
-                {/* LỰA CHỌN 1: ĐÃ SỬ DỤNG */}
                 <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusDone}]} onPress={() => onSubmit('Đã sử dụng')}>
                   <MaterialCommunityIcons name="check-circle" size={32} color="white" />
-                  <Text style={styles.logBtnText}>Đã {terms.btn}</Text>
+                  {/* Chuyển chữ in hoa thành chữ thường */}
+                  <Text style={styles.logBtnText}>Đã {terms.btn.toLowerCase()}</Text>
                 </TouchableOpacity>
 
-                {/* LỰA CHỌN 2: NHẮC LẠI */}
                 <TouchableOpacity style={[styles.logBtn, {backgroundColor: colors.statusSnooze}]} onPress={() => onSubmit('Nhắc lại')}>
                   <MaterialCommunityIcons name="alarm-snooze" size={32} color="white" />
-                  <Text style={styles.logBtnText}>Nhắc lại{'\n'}sau 30p</Text>
+                  {/* Sửa lại text để dễ hiểu hơn */}
+                  <Text style={styles.logBtnText}>Chưa {terms.btn.toLowerCase()}</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* LỰA CHỌN 3: BỎ QUA LƯỢT (GỬI LOG LÊN GOOGLE SHEET) */}
               <TouchableOpacity style={styles.skipActionBtn} onPress={() => onSubmit('Bỏ qua')}>
                 <MaterialCommunityIcons name="close-circle-outline" size={22} color="#EF4444" />
-                <Text style={styles.skipActionText}>BỎ QUA LƯỢT SỬ DỤNG NÀY</Text>
+                <Text style={styles.skipActionText}>Bỏ qua lượt này</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -87,19 +86,19 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: 'white', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   backBtn: { padding: 8, backgroundColor: '#F1F5F9', borderRadius: 15, marginRight: 12 },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', color: colors.textDark },
+  modalTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textDark }, // Tiêu đề to
   medInfoBox: { backgroundColor: '#F8FAFC', borderRadius: 24, padding: 20, alignItems: 'center', marginBottom: 25, borderWidth: 1, borderColor: '#E2E8F0' },
   imageContainer: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginBottom: 12, overflow: 'hidden', borderWidth: 2, borderColor: 'white', elevation: 2 },
   medImage: { width: '100%', height: '100%' },
-  medNameModal: { fontSize: 22, fontWeight: 'bold', color: colors.primary, marginBottom: 6, textAlign: 'center' },
-  medTimeModal: { fontSize: 17, color: colors.timeColor, fontWeight: 'bold', marginBottom: 4 },
+  medNameModal: { fontSize: 20, fontWeight: 'bold', color: colors.primary, marginBottom: 6, textAlign: 'center' }, // Tên thuốc nhỏ hơn tiêu đề
+  medTimeModal: { fontSize: 16, color: colors.timeColor, fontWeight: 'bold', marginBottom: 4 },
   eyeBadge: { alignSelf: 'center', marginVertical: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
   eyeBadgeText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
   logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 15 },
   logBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center', elevation: 3 },
-  logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15, marginTop: 6, textAlign: 'center' },
+  logBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginTop: 6, textAlign: 'center' },
   loadingBox: { paddingVertical: 30, alignItems: 'center' },
   loadingText: { marginTop: 10, color: colors.textLight, fontWeight: '500' },
   skipActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 18, backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECACA' },
-  skipActionText: { color: '#EF4444', fontWeight: 'bold', fontSize: 15, marginLeft: 8 }
+  skipActionText: { color: '#EF4444', fontWeight: 'bold', fontSize: 16, marginLeft: 8 }
 });

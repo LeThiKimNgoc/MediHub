@@ -5,35 +5,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import Papa from 'papaparse';
 
 const colors = {
-  bg: '#F5F9FC', primary: '#A5D6A7', headerText: '#1B5E20', textDark: '#455A64', textLight: '#78909C', white: '#FFFFFF',
-  chipBg: '#E8F5E9', chipSelectedBg: '#81C784', chipText: '#2E7D32', chipSelectedText: '#FFFFFF', success: '#43A047'
+  bg: '#F5F9FC', primary: '#FFB74D', headerText: '#E65100', textDark: '#455A64', textLight: '#78909C', white: '#FFFFFF',
+  chipBg: '#FFF3E0', chipSelectedBg: '#FFA726', chipText: '#E65100', chipSelectedText: '#FFFFFF', success: '#43A047'
 };
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
-// 🔥 THUẬT TOÁN CHIA GIỜ TỰ ĐỘNG (12 TIẾNG) 🔥
-const autoDistributeTimes = (startT: string, frequency: number) => {
-  if (!startT || frequency <= 0) return [];
-  if (frequency === 1) return [startT];
-
-  const [startH, startM] = startT.split(':').map(Number);
-  const startTotalMinutes = startH * 60 + startM;
-  
-  const totalWindowMinutes = 12 * 60; // 12 tiếng
-  const interval = Math.floor(totalWindowMinutes / (frequency - 1));
-
-  const newTimes = [];
-  for (let i = 0; i < frequency; i++) {
-    const totalMins = startTotalMinutes + (i * interval);
-    const h = Math.floor((totalMins / 60) % 24); 
-    const m = totalMins % 60;
-    newTimes.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-  }
-  return newTimes;
-};
-
-export default function AddPatientMedScreen() {
+export default function EditPatientMedScreen() {
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
@@ -41,28 +20,28 @@ export default function AddPatientMedScreen() {
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [isMedicinePickerVisible, setMedicinePickerVisible] = useState(false);
   
-  // State cho việc chia giờ tự động
   const [selectedHour, setSelectedHour] = useState('08');
   const [selectedMinute, setSelectedMinute] = useState('00');
-  const [autoFreq, setAutoFreq] = useState('');
 
   const [usageOptions, setUsageOptions] = useState<string[]>([]);
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
   const [loadingData, setLoadingData] = useState(true); 
 
+  // 🔥 NHẬN DỮ LIỆU CŨ VÀ ĐIỀN SẴN VÀO FORM 🔥
   const [formData, setFormData] = useState({
+    ID: params.ID || '',
     sheetName: 'Log', 
-    PatientsID: params.id || '', 
-    MedicineName: '', 
-    ImageUrl: '', 
-    Time: [] as string[], 
-    Reminder_mode: 'Bật',
-    Status: 'Chưa sử dụng', 
-    Quantity: '',   
-    DoseAmount: '', 
-    DoseUnit: 'giọt', 
-    Usage: '',
-    Duration: '' 
+    PatientsID: params.PatientsID || '', 
+    MedicineName: params.MedicineName || '', 
+    ImageUrl: params.ImageUrl || '', 
+    Time: params.Time ? (params.Time as string).split(',').map(t => t.trim()) : [] as string[], 
+    Reminder_mode: params.Reminder_mode || 'Bật',
+    Status: params.Status || 'Chưa sử dụng', 
+    Quantity: params.Quantity || '',   
+    DoseAmount: params.Dose ? (params.Dose as string).replace(/[^\d.,]/g, '') : '', 
+    DoseUnit: params.Dose ? (params.Dose as string).replace(/[\d.,]/g, '').trim() : 'giọt', 
+    Usage: params.Usage || '',
+    Duration: params.Duration || '' 
   });
 
   const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'cái'];
@@ -84,7 +63,7 @@ export default function AddPatientMedScreen() {
         complete: (results) => setMedicineOptions(results.data.map((i: any) => ({ 
           name: i.MedicineName, 
           use: i.Use,
-          imageUrl: i.ImageUrl 
+          imageUrl: i.ImageUrl
         })).filter(m => m.name)) 
       });
       setLoadingData(false);
@@ -105,15 +84,6 @@ export default function AddPatientMedScreen() {
       }
     }
   }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit]);
-
-  // Xử lý khi chọn giờ tự động
-  useEffect(() => {
-    const freq = parseInt(autoFreq);
-    if (freq > 0) {
-      const times = autoDistributeTimes(`${selectedHour}:${selectedMinute}`, freq);
-      setFormData(prev => ({ ...prev, Time: times }));
-    }
-  }, [selectedHour, selectedMinute, autoFreq]);
 
   const handleSelectMedicine = (med: any) => {
     let autoUnit = formData.DoseUnit;
@@ -147,8 +117,9 @@ export default function AddPatientMedScreen() {
     setLoading(true);
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
+    // Đổi hành động thành sửa (editRemind)
     const payload = { 
-      action: 'addRemind', 
+      action: 'editRemind', 
       data: {
         ...formData, 
         Time: formData.Time.join(', '), 
@@ -163,9 +134,10 @@ export default function AddPatientMedScreen() {
         const result = JSON.parse(textResult);
         if (result.status === 'success') {
           setToastVisible(true);
-          setFormData({ ...formData, MedicineName: '', ImageUrl: '', Time: [], Quantity: '', DoseAmount: '', Usage: '', Duration: '' }); 
-          setAutoFreq(''); // Reset ô nhập tần suất
-          setTimeout(() => setToastVisible(false), 3000);
+          setTimeout(() => {
+            setToastVisible(false);
+            router.back(); // Sửa xong thì tự động quay về trang danh sách
+          }, 1500);
         } else Alert.alert('Lỗi hệ thống', result.message);
       } catch (e) { Alert.alert('Lỗi Máy Chủ', 'Apps Script đang bị lỗi.'); }
     } catch (error) { Alert.alert('Lỗi mạng', 'Trình duyệt từ chối kết nối.'); } 
@@ -175,10 +147,11 @@ export default function AddPatientMedScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
+      {/* MODAL CHỌN THUỐC TỪ KHO */}
       <Modal visible={isMedicinePickerVisible} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxHeight: '80%', width: '90%' }]}>
-            <Text style={styles.modalTitle}>Chọn Thuốc Trong Kho</Text>
+            <Text style={styles.modalTitle}>Đổi Thuốc Khác Trong Kho</Text>
             {loadingData ? <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} /> : (
               <ScrollView style={{ width: '100%', marginBottom: 15 }}>
                 {medicineOptions.map((med, idx) => (
@@ -198,10 +171,11 @@ export default function AddPatientMedScreen() {
         </View>
       </Modal>
 
+      {/* MODAL CHỌN GIỜ */}
       <Modal visible={isTimePickerVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn Giờ</Text>
+            <Text style={styles.modalTitle}>Chọn Giờ Uống Thuốc</Text>
             <View style={styles.pickerContainer}>
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerHeader}>Giờ</Text>
@@ -229,14 +203,14 @@ export default function AddPatientMedScreen() {
         </View>
       </Modal>
 
-      {toastVisible && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-circle" size={20} color={colors.white} /><Text style={styles.toastText}>Đã gán thuốc thành công!</Text></View>}
+      {toastVisible && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-circle" size={20} color={colors.white} /><Text style={styles.toastText}>Đã sửa cữ thuốc thành công!</Text></View>}
 
       <View style={styles.appHeader}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} /></TouchableOpacity>
         <View style={styles.logoCircleHeader}>
           <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
         </View>
-        <View><Text style={styles.headerTitle}>Gán Thuốc Mới</Text><Text style={styles.subTitle}>Cho BN: {params.name} ({params.id})</Text></View>
+        <View><Text style={styles.headerTitle}>Sửa Thông Tin Thuốc</Text><Text style={styles.subTitle}>Cho BN: {params.PatientsID}</Text></View>
       </View>
 
       <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
@@ -246,29 +220,6 @@ export default function AddPatientMedScreen() {
             <Text style={{ color: formData.MedicineName ? colors.textDark : colors.textLight, fontSize: 16 }}>{formData.MedicineName || "Bấm để chọn thuốc từ Kho..."}</Text>
             <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textLight} />
           </TouchableOpacity>
-        </View>
-
-        {/* 🔥 GIAO DIỆN CHIA GIỜ TỰ ĐỘNG 🔥 */}
-        <View style={styles.autoScheduleBox}>
-          <Text style={styles.autoTitle}><MaterialCommunityIcons name="robot-outline" size={16} /> Chia giờ tự động (Khung 12 tiếng)</Text>
-          <View style={{flexDirection: 'row', gap: 10, alignItems: 'flex-end'}}>
-            <View style={{flex: 1}}>
-              <Text style={styles.subLabel}>Bắt đầu lúc</Text>
-              <TouchableOpacity style={styles.miniInput} onPress={() => setTimePickerVisible(true)}>
-                <Text style={{textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: colors.textDark}}>{selectedHour}:{selectedMinute}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{flex: 1}}>
-              <Text style={styles.subLabel}>Số lần / ngày</Text>
-              <TextInput 
-                style={[styles.miniInput, {textAlign: 'center', fontSize: 16, fontWeight: 'bold'}]}
-                placeholder="Vd: 6"
-                keyboardType="numeric"
-                value={autoFreq}
-                onChangeText={setAutoFreq}
-              />
-            </View>
-          </View>
         </View>
 
         <View style={styles.inputGroup}>
@@ -320,18 +271,17 @@ export default function AddPatientMedScreen() {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Thời Gian Sử Dụng (Ngày)</Text>
           <TextInput 
-            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#F0FDF4' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#86EFAC' : '#E0E0E0', outlineStyle: 'none' as any }]} 
+            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#FFF8E1' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#FFE082' : '#E0E0E0', outlineStyle: 'none' as any }]} 
             placeholder="Nhập số ngày hoặc tự tính..." 
             placeholderTextColor={colors.textLight} 
             value={formData.Duration} 
             onChangeText={(text) => handleChange('Duration', text)} 
             keyboardType="numeric"
           />
-          {formData.DoseUnit === 'viên' && <Text style={{fontSize: 12, color: '#059669', marginTop: 5, fontStyle: 'italic'}}>* Hệ thống đang tự động tính số ngày dựa trên liều lượng.</Text>}
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={submitData} disabled={loading}>
-          {loading ? <ActivityIndicator color={colors.headerText} /> : <><MaterialCommunityIcons name="content-save" size={24} color={colors.headerText} style={{marginRight: 8}} /><Text style={styles.submitText}>LƯU VÀO LỊCH</Text></>}
+          {loading ? <ActivityIndicator color={colors.headerText} /> : <><MaterialCommunityIcons name="content-save-edit" size={24} color={colors.headerText} style={{marginRight: 8}} /><Text style={styles.submitText}>CẬP NHẬT CỮ THUỐC</Text></>}
         </TouchableOpacity>
         <View style={{height: 40}} /> 
       </ScrollView>
@@ -341,19 +291,12 @@ export default function AddPatientMedScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
-  
-  // 🔥 STYLE CHO HỘP CHIA GIỜ TỰ ĐỘNG 🔥
-  autoScheduleBox: { backgroundColor: '#F0FDF4', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#BBF7D0', elevation: 1 },
-  autoTitle: { fontSize: 14, fontWeight: 'bold', color: '#166534', marginBottom: 10 },
-  subLabel: { fontSize: 13, color: '#166534', marginBottom: 6, fontWeight: '600' },
-  miniInput: { backgroundColor: 'white', paddingVertical: 12, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: '#86EFAC' },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: colors.white, width: '80%', maxWidth: 350, borderRadius: 20, padding: 20, elevation: 10, overflow: 'hidden' }, 
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.headerText, textAlign: 'center', marginBottom: 15 },
   medicineListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', paddingHorizontal: 5 },
   medicineListText: { fontSize: 16, color: colors.textDark, fontWeight: 'bold' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 220, backgroundColor: '#F9FBE7', borderRadius: 12, paddingVertical: 10, overflow: 'hidden' },
+  pickerContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 220, backgroundColor: '#FFF3E0', borderRadius: 12, paddingVertical: 10, overflow: 'hidden' },
   pickerColumn: { flex: 1, alignItems: 'center', height: '100%' }, 
   pickerHeader: { fontSize: 14, fontWeight: 'bold', color: colors.textLight, marginBottom: 5 },
   scrollArea: { width: '100%', height: '100%', ...Platform.select({ web: { scrollbarWidth: 'thin', scrollbarColor: `${colors.primary} transparent` } }) }, 
