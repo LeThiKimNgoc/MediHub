@@ -12,6 +12,27 @@ const colors = {
 const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
 const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
 
+// 🔥 THUẬT TOÁN CHIA GIỜ TỰ ĐỘNG (12 TIẾNG) 🔥
+const autoDistributeTimes = (startT: string, frequency: number) => {
+  if (!startT || frequency <= 0) return [];
+  if (frequency === 1) return [startT];
+
+  const [startH, startM] = startT.split(':').map(Number);
+  const startTotalMinutes = startH * 60 + startM;
+  
+  const totalWindowMinutes = 12 * 60; // Dàn đều trong 12 tiếng
+  const interval = Math.floor(totalWindowMinutes / (frequency - 1));
+
+  const newTimes = [];
+  for (let i = 0; i < frequency; i++) {
+    const totalMins = startTotalMinutes + (i * interval);
+    const h = Math.floor((totalMins / 60) % 24); 
+    const m = totalMins % 60;
+    newTimes.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+  }
+  return newTimes;
+};
+
 export default function EditPatientMedScreen() {
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
@@ -20,14 +41,15 @@ export default function EditPatientMedScreen() {
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
   const [isMedicinePickerVisible, setMedicinePickerVisible] = useState(false);
   
+  // State phục vụ Chia giờ tự động
   const [selectedHour, setSelectedHour] = useState('08');
   const [selectedMinute, setSelectedMinute] = useState('00');
+  const [autoFreq, setAutoFreq] = useState('');
 
   const [usageOptions, setUsageOptions] = useState<string[]>([]);
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
   const [loadingData, setLoadingData] = useState(true); 
 
-  // 🔥 NHẬN DỮ LIỆU CŨ VÀ ĐIỀN SẴN VÀO FORM 🔥
   const [formData, setFormData] = useState({
     ID: params.ID || '',
     sheetName: 'Log', 
@@ -85,6 +107,16 @@ export default function EditPatientMedScreen() {
     }
   }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit]);
 
+  // Lắng nghe thay đổi để tự động chia giờ
+  useEffect(() => {
+    const freq = parseInt(autoFreq);
+    if (freq > 0) {
+      const times = autoDistributeTimes(`${selectedHour}:${selectedMinute}`, freq);
+      setFormData(prev => ({ ...prev, Time: times }));
+    }
+  }, [selectedHour, selectedMinute, autoFreq]);
+
+
   const handleSelectMedicine = (med: any) => {
     let autoUnit = formData.DoseUnit;
     let autoAmount = formData.DoseAmount;
@@ -117,7 +149,6 @@ export default function EditPatientMedScreen() {
     setLoading(true);
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
-    // Đổi hành động thành sửa (editRemind)
     const payload = { 
       action: 'editRemind', 
       data: {
@@ -136,7 +167,7 @@ export default function EditPatientMedScreen() {
           setToastVisible(true);
           setTimeout(() => {
             setToastVisible(false);
-            router.back(); // Sửa xong thì tự động quay về trang danh sách
+            router.back(); 
           }, 1500);
         } else Alert.alert('Lỗi hệ thống', result.message);
       } catch (e) { Alert.alert('Lỗi Máy Chủ', 'Apps Script đang bị lỗi.'); }
@@ -171,11 +202,11 @@ export default function EditPatientMedScreen() {
         </View>
       </Modal>
 
-      {/* MODAL CHỌN GIỜ */}
+      {/* MODAL CHỌN GIỜ THỦ CÔNG */}
       <Modal visible={isTimePickerVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn Giờ Uống Thuốc</Text>
+            <Text style={styles.modalTitle}>Chọn Giờ</Text>
             <View style={styles.pickerContainer}>
               <View style={styles.pickerColumn}>
                 <Text style={styles.pickerHeader}>Giờ</Text>
@@ -197,7 +228,7 @@ export default function EditPatientMedScreen() {
             </View>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setTimePickerVisible(false)}><Text style={styles.modalBtnCancelText}>HỦY</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtnAdd} onPress={addCustomTime}><Text style={styles.modalBtnAddText}>THÊM {selectedHour}:{selectedMinute}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnAdd} onPress={addCustomTime}><Text style={styles.modalBtnAddText}>XÁC NHẬN</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -222,15 +253,41 @@ export default function EditPatientMedScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* 🔥 GIAO DIỆN CHIA GIỜ TỰ ĐỘNG 🔥 */}
+        <View style={styles.autoScheduleBox}>
+          <Text style={styles.autoTitle}><MaterialCommunityIcons name="robot-outline" size={16} /> Chia giờ tự động (Khung 12 tiếng)</Text>
+          <View style={{flexDirection: 'row', gap: 10, alignItems: 'flex-end'}}>
+            <View style={{flex: 1}}>
+              <Text style={styles.subLabel}>Bắt đầu lúc</Text>
+              <TouchableOpacity style={styles.miniInput} onPress={() => setTimePickerVisible(true)}>
+                <Text style={{textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1E40AF'}}>{selectedHour}:{selectedMinute}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{flex: 1}}>
+              <Text style={styles.subLabel}>Số lần / ngày</Text>
+              <TextInput 
+                style={[styles.miniInput, {textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: '#1E40AF'}]}
+                placeholder="Vd: 6"
+                keyboardType="numeric"
+                value={autoFreq}
+                onChangeText={setAutoFreq}
+              />
+            </View>
+          </View>
+        </View>
+
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Các Khung Giờ Uống/Nhỏ Mắt (*)</Text>
+          <Text style={styles.label}>Các Khung Giờ Đã Chọn (*)</Text>
           <View style={styles.chipsContainer}>
             {formData.Time.map((time, i) => (
               <TouchableOpacity key={i} style={styles.timeChipSelected} onPress={() => removeTime(time)} activeOpacity={0.6}>
                 <MaterialCommunityIcons name="clock-outline" size={16} color={colors.white} style={{marginRight: 4}} /><Text style={styles.chipTextSelected}>{time}</Text><MaterialCommunityIcons name="close" size={16} color={colors.white} style={{marginLeft: 6}} />
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={styles.timeChipAdd} onPress={() => setTimePickerVisible(true)}><MaterialCommunityIcons name="plus-circle-outline" size={18} color={colors.primary} style={{marginRight: 4}} /><Text style={{color: colors.primary, fontWeight: 'bold'}}>Thêm Giờ</Text></TouchableOpacity>
+            {/* Nút Thêm Giờ thủ công nếu bác sĩ muốn chỉnh tay */}
+            <TouchableOpacity style={styles.timeChipAdd} onPress={() => setTimePickerVisible(true)}>
+                <MaterialCommunityIcons name="plus" size={18} color={colors.primary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -291,6 +348,13 @@ export default function EditPatientMedScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
+  
+  // 🔥 STYLE HỘP CHIA GIỜ TỰ ĐỘNG (Xanh dương cho đỡ nhầm màu Xanh lá của Thêm)
+  autoScheduleBox: { backgroundColor: '#EFF6FF', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#BFDBFE', elevation: 1 },
+  autoTitle: { fontSize: 14, fontWeight: 'bold', color: '#1E3A8A', marginBottom: 10 },
+  subLabel: { fontSize: 13, color: '#1E3A8A', marginBottom: 6, fontWeight: '600' },
+  miniInput: { backgroundColor: 'white', paddingVertical: 12, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: '#93C5FD' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: colors.white, width: '80%', maxWidth: 350, borderRadius: 20, padding: 20, elevation: 10, overflow: 'hidden' }, 
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.headerText, textAlign: 'center', marginBottom: 15 },
