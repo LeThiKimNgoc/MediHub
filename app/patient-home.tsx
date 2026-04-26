@@ -30,8 +30,8 @@ export default function PatientHomeScreen() {
   const patientId = params.id as string;
   const patientName = params.name as string;
 
-  // State điều khiển màn hình Kép (Menu và Danh sách thuốc)
-  const [activeView, setActiveView] = useState<'menu' | 'meds'>('menu');
+  // 🔥 ĐIỀU KHIỂN CHUYỂN TAB TRÊN TRANG CHỦ
+  const [activeTab, setActiveTab] = useState<'home' | 'meds'>('home');
 
   const [medications, setMedications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,13 +69,10 @@ export default function PatientHomeScreen() {
           header: true, skipEmptyLines: true,
           complete: async (results) => {
             let rawMeds = results.data.filter((item: any) => item.PatientsID === patientId);
-            
-            // TẠO MẢNG BONG BÓNG
             let groupedMeds = rawMeds.map(med => {
               const times = med.Time ? med.Time.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
               return { ...med, timeArray: times }; 
             });
-
             setMedications(groupedMeds); 
             await AsyncStorage.setItem(`@cached_meds_${patientId}`, JSON.stringify(groupedMeds)); 
             setLoading(false); setRefreshing(false);
@@ -105,7 +102,7 @@ export default function PatientHomeScreen() {
   useFocusEffect(useCallback(() => { fetchMedications(); fetchHistoryLogs(true); }, [patientId]));
   const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); fetchHistoryLogs(true); }, [patientId]);
 
-  // 🔥 THUẬT TOÁN ĐẾM TIẾN ĐỘ & TÌM TẤT CẢ CÁC THUỐC TRÙNG GIỜ 🔥
+  // 🔥 LOGIC GOM THUỐC TRÙNG GIỜ
   const dashboardStats = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
@@ -133,30 +130,25 @@ export default function PatientHomeScreen() {
     allPendingDoses.sort((a, b) => a.Time.localeCompare(b.Time));
 
     const currentMinutes = today.getHours() * 60 + today.getMinutes();
-    let nextDoses: any[] = []; // Thay đổi thành mảng để chứa nhiều thuốc
+    let nextDoses: any[] = [];
 
     if (allPendingDoses.length > 0) {
       const upcomingDoses = allPendingDoses.filter(med => {
         const [h, m] = med.Time.split(':').map(Number);
         const doseMinutes = h * 60 + m;
-        return doseMinutes >= currentMinutes - 60; // Lọc cữ thực tế
+        return doseMinutes >= currentMinutes - 60; 
       });
 
       const targetList = upcomingDoses.length > 0 ? upcomingDoses : allPendingDoses;
-      
       if (targetList.length > 0) {
         const targetTime = targetList[0].Time; 
-        // Lọc ra TẤT CẢ các thuốc có cùng giờ đó
         nextDoses = targetList.filter(med => med.Time === targetTime);
       }
     }
 
     return {
-      total: totalDoses, 
-      completed: completedDoses, 
-      progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
-      nextDoses, // Truyền mảng nextDoses ra ngoài
-      allPending: allPendingDoses
+      total: totalDoses, completed: completedDoses, progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
+      nextDoses, allPending: allPendingDoses
     };
   }, [medications, historyLogs]);
 
@@ -170,11 +162,8 @@ export default function PatientHomeScreen() {
           if (newStatus === 'Đã sử dụng') {
              const terms = getMedTerminology(selectedMed);
              if (terms.action === 'nhỏ' || terms.action === 'tra') {
-                 // KHOẢNG NGHỈ THÔNG MINH
                  const otherPendingEyeDrops = dashboardStats.allPending.filter(
-                     (med: any) =>
-                         med.Time === selectedMed.Time && 
-                         med.MedicineName !== selectedMed.MedicineName &&
+                     (med: any) => med.Time === selectedMed.Time && med.MedicineName !== selectedMed.MedicineName &&
                          (getMedTerminology(med).action === 'nhỏ' || getMedTerminology(med).action === 'tra')
                  );
                  if (otherPendingEyeDrops.length > 0) setCooldown(600); 
@@ -206,7 +195,7 @@ export default function PatientHomeScreen() {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
       { text: 'Hủy', style: 'cancel' }, 
       { text: 'Thoát', style: 'destructive', onPress: () => {
-        setProfileModalVisible(false); // Đóng Modal trước khi đăng xuất
+        setProfileModalVisible(false); 
         AsyncStorage.removeItem('patientId'); AsyncStorage.removeItem('patientName'); router.replace('/'); 
       }}
     ]);
@@ -214,112 +203,84 @@ export default function PatientHomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {loading ? (
-         <View style={styles.centerContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
-      ) : (
-        <>
-          {/* ========================================== */}
-          {/* MÀN HÌNH 1: MENU GỌN GÀNG TỐI ƯU UX */}
-          {/* ========================================== */}
-          {activeView === 'menu' && (
-            <ScrollView contentContainerStyle={{ paddingBottom: 50 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-              <DashboardHeader 
-                patientName={patientName} dashboardStats={dashboardStats} cooldown={cooldown} loading={loading}
-                onOpenProfile={() => setProfileModalVisible(true)}
-                onOpenLogModal={(med) => { setSelectedMed(med); setLogModalVisible(true); }}
-                onOpenHistory={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}
-                onRefresh={onRefresh} onSOS={() => setSosModalVisible(true)} onLogout={handleLogout} onOpenSymptoms={() => setSymptomModalVisible(true)} 
-              />
-              
-              <View style={styles.mainMenuContainer}>
-                <Text style={styles.menuSectionTitle}>Lựa chọn của bạn</Text>
+      <View style={{ flex: 1 }}>
+        {loading ? (
+           <View style={styles.centerContainer}><ActivityIndicator size="large" color={colors.primary} /></View>
+        ) : (
+          <>
+            {/* TAB 1: TRANG CHỦ (DASHBOARD) */}
+            {activeTab === 'home' && (
+              <ScrollView contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+                <DashboardHeader 
+                  patientName={patientName} dashboardStats={dashboardStats} cooldown={cooldown} loading={loading}
+                  onOpenProfile={() => setProfileModalVisible(true)}
+                  onOpenLogModal={(med) => { setSelectedMed(med); setLogModalVisible(true); }}
+                  onOpenHistory={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}
+                  onRefresh={onRefresh} onSOS={() => setSosModalVisible(true)} onLogout={handleLogout} onOpenSymptoms={() => setSymptomModalVisible(true)} 
+                />
                 
-                {/* Nút vào Tủ Thuốc */}
-                <TouchableOpacity style={styles.mainMenuBtnPrimary} onPress={() => setActiveView('meds')}>
-                  <View style={styles.menuIconCirclePrimary}>
-                    <MaterialCommunityIcons name="medical-bag" size={36} color="white" />
-                  </View>
-                  <View style={styles.menuTextGroup}>
-                    <Text style={styles.mainMenuTitlePrimary}>Tủ Thuốc Hôm Nay</Text>
-                    <Text style={styles.mainMenuSubPrimary}>Xem tất cả các cữ thuốc và xác nhận</Text>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={30} color={colors.primary} />
-                </TouchableOpacity>
-
-                {/* Các nút công cụ */}
-                <View style={styles.menuGrid}>
-                  <TouchableOpacity style={styles.menuGridItem} onPress={() => setSymptomModalVisible(true)}>
-                    <View style={[styles.menuIconCircle, { backgroundColor: '#FEE2E2' }]}>
-                      <MaterialCommunityIcons name="heart-pulse" size={28} color="#EF4444" />
-                    </View>
-                    <Text style={styles.menuGridText}>Báo cáo{'\n'}Triệu chứng</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.menuGridItem} onPress={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}>
-                    <View style={[styles.menuIconCircle, { backgroundColor: '#FEF08A' }]}>
-                      <MaterialCommunityIcons name="history" size={28} color="#CA8A04" />
-                    </View>
-                    <Text style={styles.menuGridText}>Lịch sử{'\n'}Sử dụng</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.menuGridItem} onPress={() => setSosModalVisible(true)}>
-                    <View style={[styles.menuIconCircle, { backgroundColor: '#E0E7FF' }]}>
-                      <MaterialCommunityIcons name="doctor" size={28} color="#4F46E5" />
-                    </View>
-                    <Text style={styles.menuGridText}>Liên hệ{'\n'}Bác sĩ</Text>
-                  </TouchableOpacity>
+                {/* QUICK ACTIONS DƯỚI DASHBOARD */}
+                <View style={styles.quickActionsRow}>
+                   <TouchableOpacity style={[styles.qBtn, {backgroundColor: '#FEE2E2'}]} onPress={() => setSymptomModalVisible(true)}>
+                      <MaterialCommunityIcons name="heart-pulse" size={32} color="#EF4444" />
+                      <Text style={styles.qText}>Báo Triệu Chứng</Text>
+                   </TouchableOpacity>
+                   <TouchableOpacity style={[styles.qBtn, {backgroundColor: '#E0E7FF'}]} onPress={() => setSosModalVisible(true)}>
+                      <MaterialCommunityIcons name="doctor" size={32} color="#4F46E5" />
+                      <Text style={styles.qText}>Gọi Bác Sĩ</Text>
+                   </TouchableOpacity>
                 </View>
-              </View>
-            </ScrollView>
-          )}
+              </ScrollView>
+            )}
 
-          {/* ========================================== */}
-          {/* MÀN HÌNH 2: TỦ THUỐC VỚI BONG BÓNG THỜI GIAN */}
-          {/* ========================================== */}
-          {activeView === 'meds' && (
-            <View style={{ flex: 1 }}>
-              <View style={styles.medsViewHeader}>
-                <TouchableOpacity onPress={() => setActiveView('menu')} style={styles.backBtn}>
-                  <MaterialCommunityIcons name="arrow-left" size={28} color={colors.textDark} />
-                </TouchableOpacity>
-                <Text style={styles.medsViewTitle}>Tủ Thuốc Hôm Nay</Text>
-                <View style={{ width: 28 }} />
+            {/* TAB 2: TỦ THUỐC (MY MEDS) */}
+            {activeTab === 'meds' && (
+              <View style={{ flex: 1 }}>
+                <View style={styles.tabHeader}><Text style={styles.tabHeaderTitle}>Tủ Thuốc Của Tôi</Text></View>
+                <FlatList
+                  data={medications}
+                  keyExtractor={(item, index) => index.toString()}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 15, paddingBottom: 50 }}
+                  renderItem={({ item }) => (
+                    <MedCardItem item={item} historyLogs={historyLogs} onPressTime={(med, time) => { setSelectedMed({...med, Time: time}); setLogModalVisible(true); }} />
+                  )}
+                />
               </View>
+            )}
+          </>
+        )}
+      </View>
 
-              <FlatList
-                data={medications}
-                keyExtractor={(item, index) => index.toString()}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingVertical: 20, paddingBottom: 100 }}
-                renderItem={({ item }) => (
-                  <MedCardItem 
-                    item={item} 
-                    historyLogs={historyLogs} 
-                    // Gọi Modal Bong bóng
-                    onPressTime={(med, time) => { 
-                      setSelectedMed({...med, Time: time}); 
-                      setLogModalVisible(true); 
-                    }} 
-                  />
-                )}
-              />
-            </View>
-          )}
-        </>
+      {/* 🔥 THANH ĐIỀU HƯỚNG CỐ ĐỊNH DƯỚI CÙNG 🔥 */}
+      {!loading && (
+        <View style={styles.bottomNav}>
+          <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}>
+            <MaterialCommunityIcons name={activeTab === 'home' ? "home-variant" : "home-variant-outline"} size={28} color={activeTab === 'home' ? colors.primary : '#94A3B8'} />
+            <Text style={[styles.navLabel, activeTab === 'home' && {color: colors.primary}]}>Trang chủ</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navItem} onPress={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}>
+            <MaterialCommunityIcons name="chart-arc" size={28} color="#94A3B8" />
+            <Text style={styles.navLabel}>Lịch sử</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('meds')}>
+            <MaterialCommunityIcons name={activeTab === 'meds' ? "medical-bag" : "bag-personal-outline"} size={28} color={activeTab === 'meds' ? colors.primary : '#94A3B8'} />
+            <Text style={[styles.navLabel, activeTab === 'meds' && {color: colors.primary}]}>Tủ thuốc</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}>
+            <MaterialCommunityIcons name="account-cog-outline" size={28} color="#94A3B8" />
+            <Text style={styles.navLabel}>Cài đặt</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
+      {/* MODALS PHỤ TRỢ */}
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      
-      {/* 🔥 ĐÃ CẬP NHẬT TRUYỀN onLogout VÀO ĐÂY 🔥 */}
-      <ProfileModal 
-        visible={isProfileModalVisible} 
-        patientId={patientId} 
-        patientName={patientName} 
-        onClose={() => setProfileModalVisible(false)} 
-        onLogout={handleLogout} 
-      />
-      
+      <ProfileModal visible={isProfileModalVisible} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} onLogout={handleLogout} />
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
       <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={submitSymptoms} onClose={() => setSymptomModalVisible(false)} />
 
@@ -336,21 +297,17 @@ const styles = StyleSheet.create({
   toastContainer: { position: 'absolute', top: '10%', alignSelf: 'center', backgroundColor: '#10B981', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 10 },
   toastText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
   
-  // Styles mới cho Menu
-  mainMenuContainer: { paddingHorizontal: 20, marginTop: 10 },
-  menuSectionTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, marginBottom: 15 },
-  mainMenuBtnPrimary: { flexDirection: 'row', backgroundColor: '#ECFDF5', padding: 20, borderRadius: 24, alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#A7F3D0', elevation: 2 },
-  menuIconCirclePrimary: { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  menuTextGroup: { flex: 1 },
-  mainMenuTitlePrimary: { fontSize: 18, fontWeight: 'bold', color: '#065F46', marginBottom: 4 },
-  mainMenuSubPrimary: { fontSize: 13, color: '#047857' },
-  menuGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  menuGridItem: { backgroundColor: 'white', padding: 15, borderRadius: 20, alignItems: 'center', width: '31%', elevation: 2 },
-  menuIconCircle: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  menuGridText: { fontSize: 13, fontWeight: '600', color: colors.textDark, textAlign: 'center', lineHeight: 18 },
-  
-  // Styles cho Header Tủ thuốc
-  medsViewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: 'white', elevation: 4 },
-  backBtn: { padding: 5 },
-  medsViewTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark },
+  quickActionsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 15, marginTop: 10 },
+  qBtn: { flex: 1, padding: 20, borderRadius: 24, alignItems: 'center', elevation: 2 },
+  qText: { fontSize: 14, fontWeight: 'bold', color: colors.textDark, marginTop: 8 },
+
+  tabHeader: { paddingVertical: 20, backgroundColor: 'white', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  tabHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark },
+
+  bottomNav: { 
+    flexDirection: 'row', backgroundColor: 'white', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9', justifyContent: 'space-around', 
+    paddingBottom: Platform.OS === 'ios' ? 30 : 12, elevation: 20, shadowColor: '#000', shadowOffset: {width: 0, height: -3}, shadowOpacity: 0.1, shadowRadius: 5
+  },
+  navItem: { alignItems: 'center', flex: 1 },
+  navLabel: { fontSize: 11, fontWeight: 'bold', color: '#94A3B8', marginTop: 4 }
 });
