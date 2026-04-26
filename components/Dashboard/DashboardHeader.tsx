@@ -22,11 +22,59 @@ interface DashboardHeaderProps {
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   patientName, dashboardStats, cooldown, loading, onOpenProfile, onOpenLogModal, onLogout
 }) => {
-  const terms = getMedTerminology(dashboardStats.nextDose);
+  
+  const nextDoses = dashboardStats.nextDoses || [];
+  const targetTime = nextDoses.length > 0 ? nextDoses[0].Time : '';
+
+  // PHÂN LOẠI THUỐC
+  const eyeDrops = nextDoses.filter((med: any) => {
+    const term = getMedTerminology(med).action;
+    return term === 'nhỏ' || term === 'tra';
+  });
+
+  const oralMeds = nextDoses.filter((med: any) => {
+    const term = getMedTerminology(med).action;
+    return term !== 'nhỏ' && term !== 'tra';
+  });
+
+  // COMPONENT VẼ TỪNG THẺ THUỐC (KÍCH THƯỚC BẰNG NHAU)
+  const renderDoseCard = (med: any, type: 'eye' | 'oral') => {
+    const terms = getMedTerminology(med);
+    const isEyeDrop = type === 'eye';
+    const isLocked = isEyeDrop && cooldown > 0; // Cooldown chỉ khóa thuốc nhỏ mắt
+
+    return (
+      <View key={med.MedicineName} style={[styles.doseCard, isEyeDrop ? styles.eyeDropCard : styles.oralCard]}>
+        <View style={styles.doseCardContent}>
+          <View style={[styles.doseIconBox, isEyeDrop ? {backgroundColor: '#E0F2FE'} : {backgroundColor: '#D1FAE5'}]}>
+            {med.ImageUrl ? (
+               <Image source={{uri: med.ImageUrl}} style={styles.doseImage} resizeMode="cover"/>
+            ) : (
+               <MaterialCommunityIcons name={getMedIcon(med) as any} size={30} color={isEyeDrop ? '#0284C7' : '#059669'} />
+            )}
+          </View>
+          <View style={styles.doseInfo}>
+            <Text style={styles.doseName}>{med.MedicineName}</Text>
+            <Text style={styles.doseAmount}>Liều lượng: {med.Dose}</Text>
+          </View>
+        </View>
+        
+        <TouchableOpacity 
+          style={[styles.confirmBtn, isLocked ? styles.btnLocked : (isEyeDrop ? styles.btnEyeDrop : styles.btnOral)]} 
+          onPress={() => onOpenLogModal(med)}
+          disabled={isLocked}
+        >
+          <MaterialCommunityIcons name={isLocked ? "timer-sand" : "check-decagram"} size={20} color="white" />
+          <Text style={styles.confirmBtnText}>
+            {isLocked ? `Đang chờ ${Math.floor(cooldown / 60)} phút...` : `XÁC NHẬN ${terms.btn.toUpperCase()}`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.dashboardContainer}>
-      {/* 1. HEADER CHỨA AVATAR & NÚT THOÁT */}
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.greetingText}>Xin chào,</Text>
@@ -36,16 +84,12 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
             <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutBtnTop} onPress={onLogout}>
-            <MaterialCommunityIcons name="logout" size={24} color={colors.danger} />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* 2. TIẾN ĐỘ TRONG NGÀY */}
       <View style={styles.progressCard}>
         <View style={styles.progressTextRow}>
-          <Text style={styles.progressTitle}>Tiến độ dùng thuốc hôm nay</Text>
+          <Text style={styles.progressTitle}>Tiến độ hôm nay</Text>
           <Text style={styles.progressRatio}>{dashboardStats.completed}/{dashboardStats.total}</Text>
         </View>
         <View style={styles.progressBarBg}>
@@ -53,59 +97,36 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </View>
       </View>
 
-      {/* 3. CẢNH BÁO KHOẢNG NGHỈ 10 PHÚT */}
-      {cooldown > 0 && dashboardStats.nextDose && (
-        <View style={styles.cooldownBanner}>
-          <MaterialCommunityIcons name="timer-sand" size={28} color="#047857" />
-          <Text style={styles.cooldownText}>
-            Khoảng nghỉ: Đợi {Math.floor(cooldown / 60)} phút {cooldown % 60 < 10 ? '0' : ''}{cooldown % 60} giây nữa để dùng liều tiếp.
-          </Text>
+      {/* KHỐI HIỂN THỊ CÁC THUỐC CÙNG GIỜ */}
+      {nextDoses.length > 0 && !loading && (
+        <View style={styles.heroContainer}>
+          <View style={styles.heroTimeHeader}>
+            <MaterialCommunityIcons name="alarm" size={26} color={colors.timeColor} />
+            <Text style={styles.heroTimeText}>Cữ thuốc tiếp theo lúc: {targetTime}</Text>
+          </View>
+
+          {/* NHÓM 1: THUỐC NHỎ MẮT (Ưu tiên hiển thị trước) */}
+          {eyeDrops.length > 0 && (
+            <View style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <MaterialCommunityIcons name="eye-drop" size={22} color="#0284C7" />
+                <Text style={[styles.categoryTitle, { color: '#0369A1' }]}>THUỐC NHỎ / TRA MẮT</Text>
+              </View>
+              {eyeDrops.map((med: any) => renderDoseCard(med, 'eye'))}
+            </View>
+          )}
+
+          {/* NHÓM 2: THUỐC UỐNG */}
+          {oralMeds.length > 0 && (
+            <View style={styles.categorySection}>
+              <View style={styles.categoryHeader}>
+                <MaterialCommunityIcons name="pill" size={22} color="#059669" />
+                <Text style={[styles.categoryTitle, { color: '#047857' }]}>THUỐC UỐNG</Text>
+              </View>
+              {oralMeds.map((med: any) => renderDoseCard(med, 'oral'))}
+            </View>
+          )}
         </View>
-      )}
-
-      {/* 4. THẺ LIỀU THUỐC TIẾP THEO (KHẨN CẤP) */}
-      {dashboardStats.nextDose && !loading && (
-        <LinearGradient colors={['#E0F2FE', '#F0F9FF', '#FFFFFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-          <View style={styles.heroHeader}>
-            <MaterialCommunityIcons name="alarm" size={24} color={colors.timeColor} />
-            <Text style={styles.heroTitle}>Cần {terms.action} tiếp theo lúc: {dashboardStats.nextDose.Time}</Text>
-          </View>
-          
-          <View style={styles.heroContent}>
-            <View style={styles.heroIconBox}>
-              {/* CẬP NHẬT: HIỆN ẢNH THUỐC TRÊN THẺ TO NẾU CÓ */}
-              {dashboardStats.nextDose.ImageUrl ? (
-                 <Image source={{uri: dashboardStats.nextDose.ImageUrl}} style={{width: '100%', height: '100%', borderRadius: 16}} resizeMode="cover"/>
-              ) : (
-                 <MaterialCommunityIcons name={getMedIcon(dashboardStats.nextDose) as any} size={40} color={colors.primary} />
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroMedName}>{dashboardStats.nextDose.MedicineName}</Text>
-              <Text style={styles.heroDose}>Liều lượng: {dashboardStats.nextDose.Dose}</Text>
-              {getEyeIndicator(dashboardStats.nextDose.Usage || dashboardStats.nextDose.Dose) && (
-                <View style={[styles.eyeBadge, { backgroundColor: getEyeIndicator(dashboardStats.nextDose.Usage || dashboardStats.nextDose.Dose)?.color }]}>
-                  <MaterialCommunityIcons name={getEyeIndicator(dashboardStats.nextDose.Usage || dashboardStats.nextDose.Dose)?.icon as any} size={16} color="white" />
-                  <Text style={styles.eyeBadgeText}>{getEyeIndicator(dashboardStats.nextDose.Usage || dashboardStats.nextDose.Dose)?.label}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.hygieneNote}>
-            <MaterialCommunityIcons name="information-outline" size={18} color="#059669" />
-            <Text style={styles.hygieneText}>{terms.note}</Text>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.heroBtn, { backgroundColor: cooldown > 0 ? '#94A3B8' : colors.primary }]} 
-            onPress={() => onOpenLogModal(dashboardStats.nextDose)}
-            disabled={cooldown > 0}
-          >
-            <MaterialCommunityIcons name={cooldown > 0 ? "timer-sand" : "check-decagram"} size={24} color="white" />
-            <Text style={styles.heroBtnText}>{cooldown > 0 ? 'ĐANG TRONG KHOẢNG NGHỈ' : `XÁC NHẬN ĐÃ ${terms.btn}`}</Text>
-          </TouchableOpacity>
-        </LinearGradient>
       )}
     </View>
   );
@@ -118,26 +139,36 @@ const styles = StyleSheet.create({
   patientName: { fontSize: 26, fontWeight: 'bold', color: colors.textDark },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatarBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  logoutBtnTop: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#FCA5A5' },
-  progressCard: { backgroundColor: 'white', padding: 20, borderRadius: 24, marginBottom: 25, elevation: 4 },
+  progressCard: { backgroundColor: 'white', padding: 20, borderRadius: 24, marginBottom: 20, elevation: 4 },
   progressTextRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   progressTitle: { fontSize: 16, fontWeight: 'bold', color: colors.textDark },
   progressRatio: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
   progressBarBg: { height: 10, backgroundColor: '#E2E8F0', borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 5 },
-  cooldownBanner: { flexDirection: 'row', backgroundColor: '#D1FAE5', padding: 16, borderRadius: 16, marginBottom: 20, alignItems: 'center', borderWidth: 1, borderColor: '#34D399', elevation: 2 },
-  cooldownText: { color: '#065F46', fontSize: 16, fontWeight: 'bold', marginLeft: 12, flex: 1, lineHeight: 24 },
-  heroCard: { borderRadius: 24, padding: 20, marginBottom: 10, borderWidth: 2, borderColor: colors.primaryLight, elevation: 5 },
-  heroHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  heroTitle: { fontSize: 18, fontWeight: 'bold', color: colors.timeColor, marginLeft: 8 },
-  heroContent: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  heroIconBox: { width: 70, height: 70, backgroundColor: '#F0F9FF', borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  heroMedName: { fontSize: 22, fontWeight: 'bold', color: colors.textDark, marginBottom: 4 },
-  heroDose: { fontSize: 16, color: colors.textLight, marginBottom: 8 },
-  eyeBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
-  eyeBadgeText: { color: 'white', fontWeight: 'bold', fontSize: 12, marginLeft: 4 },
-  hygieneNote: { flexDirection: 'row', backgroundColor: '#D1FAE5', padding: 10, borderRadius: 12, alignItems: 'center', marginBottom: 20 },
-  hygieneText: { color: '#065F46', fontSize: 14, marginLeft: 8, fontWeight: '500', flex: 1 },
-  heroBtn: { flexDirection: 'row', padding: 16, borderRadius: 16, justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  heroBtnText: { color: 'white', fontSize: 17, fontWeight: 'bold', marginLeft: 8 }
+  
+  // Styles mới cho khu vực hiển thị danh sách thuốc
+  heroContainer: { backgroundColor: 'white', borderRadius: 24, padding: 20, borderWidth: 2, borderColor: '#E2E8F0', elevation: 2 },
+  heroTimeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  heroTimeText: { fontSize: 20, fontWeight: 'bold', color: colors.timeColor, marginLeft: 10 },
+  
+  categorySection: { marginBottom: 15 },
+  categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 12, alignSelf: 'flex-start' },
+  categoryTitle: { fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
+  
+  doseCard: { borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1 },
+  eyeDropCard: { backgroundColor: '#F0F9FF', borderColor: '#BAE6FD' },
+  oralCard: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+  
+  doseCardContent: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  doseIconBox: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginRight: 15, overflow: 'hidden' },
+  doseImage: { width: '100%', height: '100%' },
+  doseInfo: { flex: 1 },
+  doseName: { fontSize: 18, fontWeight: 'bold', color: colors.textDark, marginBottom: 4 },
+  doseAmount: { fontSize: 14, color: colors.textLight },
+  
+  confirmBtn: { flexDirection: 'row', padding: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  btnEyeDrop: { backgroundColor: '#0284C7' },
+  btnOral: { backgroundColor: '#059669' },
+  btnLocked: { backgroundColor: '#94A3B8' },
+  confirmBtnText: { color: 'white', fontSize: 15, fontWeight: 'bold', marginLeft: 8 }
 });

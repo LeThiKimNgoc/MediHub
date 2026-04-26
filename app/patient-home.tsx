@@ -105,7 +105,7 @@ export default function PatientHomeScreen() {
   useFocusEffect(useCallback(() => { fetchMedications(); fetchHistoryLogs(true); }, [patientId]));
   const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); fetchHistoryLogs(true); }, [patientId]);
 
-  // THUẬT TOÁN ĐẾM TIẾN ĐỘ & TÌM LIỀU THEO GIỜ THỰC TẾ
+  // 🔥 THUẬT TOÁN ĐẾM TIẾN ĐỘ & TÌM TẤT CẢ CÁC THUỐC TRÙNG GIỜ 🔥
   const dashboardStats = useMemo(() => {
     const today = new Date();
     const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
@@ -133,7 +133,7 @@ export default function PatientHomeScreen() {
     allPendingDoses.sort((a, b) => a.Time.localeCompare(b.Time));
 
     const currentMinutes = today.getHours() * 60 + today.getMinutes();
-    let nextDose = null;
+    let nextDoses: any[] = []; // Thay đổi thành mảng để chứa nhiều thuốc
 
     if (allPendingDoses.length > 0) {
       const upcomingDoses = allPendingDoses.filter(med => {
@@ -142,10 +142,12 @@ export default function PatientHomeScreen() {
         return doseMinutes >= currentMinutes - 60; // Lọc cữ thực tế
       });
 
-      if (upcomingDoses.length > 0) {
-        nextDose = upcomingDoses[0];
-      } else {
-        nextDose = allPendingDoses[allPendingDoses.length - 1];
+      const targetList = upcomingDoses.length > 0 ? upcomingDoses : allPendingDoses;
+      
+      if (targetList.length > 0) {
+        const targetTime = targetList[0].Time; 
+        // Lọc ra TẤT CẢ các thuốc có cùng giờ đó
+        nextDoses = targetList.filter(med => med.Time === targetTime);
       }
     }
 
@@ -153,11 +155,10 @@ export default function PatientHomeScreen() {
       total: totalDoses, 
       completed: completedDoses, 
       progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0,
-      nextDose,
+      nextDoses, // Truyền mảng nextDoses ra ngoài
       allPending: allPendingDoses
     };
   }, [medications, historyLogs]);
-
 
   const submitLog = async (newStatus: string) => {
     setIsLogging(true);
@@ -205,6 +206,7 @@ export default function PatientHomeScreen() {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [
       { text: 'Hủy', style: 'cancel' }, 
       { text: 'Thoát', style: 'destructive', onPress: () => {
+        setProfileModalVisible(false); // Đóng Modal trước khi đăng xuất
         AsyncStorage.removeItem('patientId'); AsyncStorage.removeItem('patientName'); router.replace('/'); 
       }}
     ]);
@@ -308,7 +310,16 @@ export default function PatientHomeScreen() {
 
       <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
       <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      <ProfileModal visible={isProfileModalVisible} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} />
+      
+      {/* 🔥 ĐÃ CẬP NHẬT TRUYỀN onLogout VÀO ĐÂY 🔥 */}
+      <ProfileModal 
+        visible={isProfileModalVisible} 
+        patientId={patientId} 
+        patientName={patientName} 
+        onClose={() => setProfileModalVisible(false)} 
+        onLogout={handleLogout} 
+      />
+      
       <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
       <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={submitSymptoms} onClose={() => setSymptomModalVisible(false)} />
 
