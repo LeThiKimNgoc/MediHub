@@ -1,383 +1,267 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Modal, Platform, Image } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Platform, Image, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import Papa from 'papaparse';
+import * as ImagePicker from 'expo-image-picker'; 
 
-const colors = {
-  bg: '#F5F9FC', primary: '#A5D6A7', headerText: '#1B5E20', textDark: '#455A64', textLight: '#78909C', white: '#FFFFFF',
-  chipBg: '#E8F5E9', chipSelectedBg: '#81C784', chipText: '#2E7D32', chipSelectedText: '#FFFFFF', success: '#43A047'
-};
-
-const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
-const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
-
-// 🔥 THUẬT TOÁN CHIA GIỜ TỰ ĐỘNG (12 TIẾNG) 🔥
-const autoDistributeTimes = (startT: string, frequency: number) => {
-  if (!startT || frequency <= 0) return [];
-  if (frequency === 1) return [startT];
-
-  const [startH, startM] = startT.split(':').map(Number);
-  const startTotalMinutes = startH * 60 + startM;
-  
-  const totalWindowMinutes = 12 * 60; // 12 tiếng
-  const interval = Math.floor(totalWindowMinutes / (frequency - 1));
-
-  const newTimes = [];
-  for (let i = 0; i < frequency; i++) {
-    const totalMins = startTotalMinutes + (i * interval);
-    const h = Math.floor((totalMins / 60) % 24); 
-    const m = totalMins % 60;
-    newTimes.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
-  }
-  return newTimes;
-};
+import { styles, colors } from './medStyles';
+import { fetchInventoryData, analyzePrescriptionAI, pushPrescriptionToSheet, autoDistributeTimes, parseTimeInput } from './medApi';
 
 export default function AddPatientMedScreen() {
   const params = useLocalSearchParams();
+  const { width, height } = useWindowDimensions();
+  const isDesktop = width >= 1024; 
+
   const [loading, setLoading] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
+  const [isAIScanning, setIsAIScanning] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   
-  const [isTimePickerVisible, setTimePickerVisible] = useState(false);
-  const [isMedicinePickerVisible, setMedicinePickerVisible] = useState(false);
-  
-  // State cho việc chia giờ tự động
-  const [selectedHour, setSelectedHour] = useState('08');
-  const [selectedMinute, setSelectedMinute] = useState('00');
+  const [autoStartTime, setAutoStartTime] = useState('0800');
+  const [manualTime, setManualTime] = useState('');
   const [autoFreq, setAutoFreq] = useState('');
 
   const [usageOptions, setUsageOptions] = useState<string[]>([]);
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
   const [loadingData, setLoadingData] = useState(true); 
+  const [aiSuggestedMeds, setAiSuggestedMeds] = useState<string[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [tempPrescription, setTempPrescription] = useState<any[]>([]);
 
-  const [formData, setFormData] = useState({
-    sheetName: 'Log', 
-    PatientsID: params.id || '', 
-    MedicineName: '', 
-    ImageUrl: '', 
-    Time: [] as string[], 
-    Reminder_mode: 'Bật',
-    Status: 'Chưa sử dụng', 
-    Quantity: '',   
-    DoseAmount: '', 
-    DoseUnit: 'giọt', 
-    Usage: '',
-    Duration: '' 
-  });
-
-  const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'cái'];
+  const defaultForm = { sheetName: 'Log', PatientsID: params.id || '', MedicineName: '', ImageUrl: '', Time: [] as string[], Reminder_mode: 'Bật', Status: 'Chưa sử dụng', Quantity: '', DoseAmount: '', DoseUnit: 'giọt', Usage: '', Duration: '' };
+  const [formData, setFormData] = useState(defaultForm);
+  const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'miếng', 'cái'];
   const reminderOptions = ['Bật', 'Tắt'];
 
+  const isEyeDrops = ['giọt', 'cm'].includes(formData.DoseUnit);
+
   useEffect(() => {
-    const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
-    const gidUsage = '1133416002'; 
-    const gidMedicine = '1532424446'; 
-    
-    const t = new Date().getTime();
-    Promise.all([
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidUsage}&t=${t}`).then(res => res.text()),
-      fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMedicine}&t=${t}`).then(res => res.text())
-    ]).then(([csvUsage, csvMedicine]) => {
-      Papa.parse(csvUsage, { header: true, skipEmptyLines: true, complete: (results) => setUsageOptions(results.data.map((i: any) => i.Usage).filter(Boolean)) });
-      Papa.parse(csvMedicine, { 
-        header: true, skipEmptyLines: true, 
-        complete: (results) => setMedicineOptions(results.data.map((i: any) => ({ 
-          name: i.MedicineName, 
-          use: i.Use,
-          imageUrl: i.ImageUrl 
-        })).filter(m => m.name)) 
-      });
-      setLoadingData(false);
-    }).catch(e => setLoadingData(false));
+    fetchInventoryData().then(data => { 
+      const fetchedUsages = [...data.usages];
+      if (!fetchedUsages.includes('Uống cách ngày')) fetchedUsages.unshift('Uống cách ngày');
+      setUsageOptions(fetchedUsages); 
+      setMedicineOptions(data.medicines); 
+      setLoadingData(false); 
+    }).catch(() => setLoadingData(false));
   }, []);
+
+  const filteredMeds = medicineOptions.filter(m => formData.MedicineName && m.name.toLowerCase().includes(formData.MedicineName.toLowerCase()));
+  const showToast = (msg: string) => { setToastMessage(msg); setTimeout(() => setToastMessage(''), 3000); };
+
+  const filteredUsages = useMemo(() => {
+    if (!usageOptions.length) return [];
+    const unit = formData.DoseUnit.toLowerCase();
+    
+    if (unit === 'viên' || unit === 'ml') return usageOptions.filter(u => u.toLowerCase().includes('uống'));
+    if (unit === 'giọt') return usageOptions.filter(u => u.toLowerCase().includes('nhỏ'));
+    if (unit === 'cm') return usageOptions.filter(u => u.toLowerCase().includes('tra'));
+    if (unit === 'miếng') return usageOptions.filter(u => u.toLowerCase().includes('ngoài') || u.toLowerCase().includes('miếng'));
+    
+    return usageOptions.filter(u => !u.toLowerCase().includes('uống') && !u.toLowerCase().includes('nhỏ') && !u.toLowerCase().includes('tra'));
+  }, [formData.DoseUnit, usageOptions]);
+
+  const handleAIScan = async () => {
+    try {
+      if (Platform.OS !== 'web' && !(await ImagePicker.requestMediaLibraryPermissionsAsync()).granted) return Alert.alert("Lỗi", "Cần quyền truy cập ảnh!");
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: false, quality: 0.8, base64: true });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsAIScanning(true); setAiSuggestedMeds([]); 
+        const extractedMeds = await analyzePrescriptionAI(result.assets[0].base64 || '', result.assets[0].mimeType || 'image/jpeg', medicineOptions);
+        setAiSuggestedMeds(extractedMeds);
+        showToast('Đã phân tích xong dữ liệu!'); setIsAIScanning(false);
+      }
+    } catch (error: any) { setIsAIScanning(false); showToast(error.message); }
+  };
 
   useEffect(() => {
     if (formData.DoseUnit === 'viên') {
       const qty = parseFloat(formData.Quantity); 
       const dose = parseFloat(formData.DoseAmount.replace(',', '.')); 
       const freq = formData.Time.length; 
-
+      
       if (qty && dose && freq) {
-        const days = Math.floor(qty / (dose * freq)); 
+        let days = Math.floor(qty / (dose * freq));
+        if (formData.Usage && formData.Usage.toLowerCase().includes('cách ngày')) days = days * 2;
         setFormData(prev => ({ ...prev, Duration: days.toString() }));
       } else {
         setFormData(prev => ({ ...prev, Duration: '' }));
       }
     }
-  }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit]);
+  }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit, formData.Usage]);
 
-  // Xử lý khi chọn giờ tự động
   useEffect(() => {
-    const freq = parseInt(autoFreq);
-    if (freq > 0) {
-      const times = autoDistributeTimes(`${selectedHour}:${selectedMinute}`, freq);
-      setFormData(prev => ({ ...prev, Time: times }));
+    if (isEyeDrops) {
+      const freq = parseInt(autoFreq);
+      if (freq > 0 && autoStartTime.length === 4) setFormData(prev => ({ ...prev, Time: autoDistributeTimes(autoStartTime, freq) }));
+      else if (!autoFreq) setFormData(prev => ({ ...prev, Time: [] }));
     }
-  }, [selectedHour, selectedMinute, autoFreq]);
+  }, [autoStartTime, autoFreq, formData.DoseUnit]);
 
   const handleSelectMedicine = (med: any) => {
-    let autoUnit = formData.DoseUnit;
-    let autoAmount = formData.DoseAmount;
+    let autoUnit = formData.DoseUnit; 
+    let autoAmount = formData.DoseAmount; 
     const useText = med.use ? med.use.toLowerCase() : '';
-
-    if (useText.includes('nhỏ mắt')) autoUnit = 'giọt';
-    else if (useText.includes('uống')) autoUnit = 'viên';
-    else if (useText.includes('tra mắt')) { autoUnit = 'cm'; autoAmount = '0,5-1'; }
-    else if (useText.includes('ngoài')) autoUnit = 'cái';
-
-    setFormData({ ...formData, MedicineName: med.name, ImageUrl: med.imageUrl || '', DoseUnit: autoUnit, DoseAmount: autoAmount });
-    setMedicinePickerVisible(false);
+    
+    if (useText.includes('nhỏ')) autoUnit = 'giọt'; 
+    else if (useText.includes('uống')) autoUnit = 'viên'; 
+    else if (useText.includes('tra')) { autoUnit = 'cm'; autoAmount = '0,5-1'; } 
+    else if (useText.includes('ngoài')) autoUnit = 'miếng';
+    
+    setFormData({ ...formData, MedicineName: med.name, ImageUrl: med.imageUrl || '', DoseUnit: autoUnit, DoseAmount: autoAmount, Usage: '', Duration: autoUnit === 'viên' ? formData.Duration : '' });
+    setShowDropdown(false);
   };
 
-  const handleChange = (name: string, value: any) => setFormData({ ...formData, [name]: value });
-  const removeTime = (t: string) => setFormData({ ...formData, Time: formData.Time.filter(x => x !== t) });
-  
-  const addCustomTime = () => {
-    const newTime = `${selectedHour}:${selectedMinute}`;
-    if (!formData.Time.includes(newTime)) setFormData({ ...formData, Time: [...formData.Time, newTime].sort() });
-    setTimePickerVisible(false); 
+  const handleAddManualTime = () => {
+    const formatted = parseTimeInput(manualTime);
+    if (formatted) {
+      if (!formData.Time.includes(formatted)) setFormData({ ...formData, Time: [...formData.Time, formatted].sort() });
+      setManualTime('');
+    } else showToast('Vui lòng nhập đúng 4 số (Vd: 0800)');
   };
 
-  const submitData = async () => {
-    if (!formData.MedicineName || formData.Time.length === 0 || !formData.DoseAmount) {
-      Alert.alert('Lỗi nhập liệu', 'Vui lòng Chọn Thuốc, Chọn ít nhất 1 khung giờ và nhập Liều lượng!');
-      return;
-    }
+  const addToTempPrescription = () => {
+    if (!formData.MedicineName || formData.Time.length === 0 || !formData.DoseAmount || !formData.Duration) return Alert.alert('Lỗi', 'Vui lòng điền đủ Tên thuốc, Giờ, Liều lượng và Số ngày dùng!');
+    setTempPrescription([...tempPrescription, { ...formData }]);
+    setFormData(defaultForm); setAutoFreq(''); setShowDropdown(false); setManualTime('');
+    showToast('Đã thêm vào chỉ định!');
+  };
 
+  const submitFinalPrescription = async () => {
+    if (tempPrescription.length === 0) return showToast('Đơn thuốc trống!');
     setLoading(true);
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
-
-    const payload = { 
-      action: 'addRemind', 
-      data: {
-        ...formData, 
-        Time: formData.Time.join(', '), 
-        Dose: `${formData.DoseAmount} ${formData.DoseUnit}`
-      }
-    };
-
     try {
-      const response = await fetch(scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-      const textResult = await response.text();
-      try {
-        const result = JSON.parse(textResult);
-        if (result.status === 'success') {
-          setToastVisible(true);
-          setFormData({ ...formData, MedicineName: '', ImageUrl: '', Time: [], Quantity: '', DoseAmount: '', Usage: '', Duration: '' }); 
-          setAutoFreq(''); // Reset ô nhập tần suất
-          setTimeout(() => setToastVisible(false), 3000);
-        } else Alert.alert('Lỗi hệ thống', result.message);
-      } catch (e) { Alert.alert('Lỗi Máy Chủ', 'Apps Script đang bị lỗi.'); }
-    } catch (error) { Alert.alert('Lỗi mạng', 'Trình duyệt từ chối kết nối.'); } 
-    finally { setLoading(false); }
+      await pushPrescriptionToSheet(tempPrescription);
+      showToast('🎉 Đã ban hành đơn thuốc thành công!');
+      setTempPrescription([]); 
+      setTimeout(() => router.push({ pathname: '/patient' } as any), 1000);
+    } catch (error: any) { showToast(error.message); } finally { setLoading(false); }
+  };
+
+  // 🔥 HÀM XỬ LÝ QUAY VỀ THÔNG MINH 🔥
+  const handleGoBack = () => {
+    try {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/patient'); // Trả về trang bệnh nhân nếu bị mất lịch sử
+      }
+    } catch (error) {
+      router.replace('/patient');
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-      <Modal visible={isMedicinePickerVisible} transparent={true} animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxHeight: '80%', width: '90%' }]}>
-            <Text style={styles.modalTitle}>Chọn Thuốc Trong Kho</Text>
-            {loadingData ? <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} /> : (
-              <ScrollView style={{ width: '100%', marginBottom: 15 }}>
-                {medicineOptions.map((med, idx) => (
-                  <TouchableOpacity key={idx} style={styles.medicineListItem} onPress={() => handleSelectMedicine(med)}>
-                    {med.imageUrl ? (
-                        <Image source={{uri: med.imageUrl}} style={{width: 30, height: 30, borderRadius: 8, marginRight: 12}} />
-                    ) : (
-                        <MaterialCommunityIcons name="pill" size={24} color={colors.primary} style={{ marginRight: 15 }} />
-                    )}
-                    <View style={{flex: 1}}><Text style={styles.medicineListText}>{med.name}</Text><Text style={{fontSize: 12, color: colors.textLight}}>{med.use || 'Chưa phân loại'}</Text></View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-            <TouchableOpacity style={[styles.modalBtnCancel, { width: '100%' }]} onPress={() => setMedicinePickerVisible(false)}><Text style={styles.modalBtnCancelText}>ĐÓNG</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={isTimePickerVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Chọn Giờ</Text>
-            <View style={styles.pickerContainer}>
-              <View style={styles.pickerColumn}>
-                <Text style={styles.pickerHeader}>Giờ</Text>
-                <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'} style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} contentContainerStyle={styles.scrollContent}>
-                  {HOURS.map(h => (
-                    <TouchableOpacity key={h} onPress={() => setSelectedHour(h)} style={[styles.pickerItem, selectedHour === h && styles.pickerItemActive]}><Text style={[styles.pickerText, selectedHour === h && styles.pickerTextActive]}>{h}</Text></TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              <Text style={styles.pickerSeparator}>:</Text>
-              <View style={styles.pickerColumn}>
-                <Text style={styles.pickerHeader}>Phút</Text>
-                <ScrollView showsVerticalScrollIndicator={Platform.OS === 'web'} style={[styles.scrollArea, Platform.OS === 'web' && { overflowY: 'auto', userSelect: 'none' } as any]} contentContainerStyle={styles.scrollContent}>
-                  {MINUTES.map(m => (
-                    <TouchableOpacity key={m} onPress={() => setSelectedMinute(m)} style={[styles.pickerItem, selectedMinute === m && styles.pickerItemActive]}><Text style={[styles.pickerText, selectedMinute === m && styles.pickerTextActive]}>{m}</Text></TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            </View>
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setTimePickerVisible(false)}><Text style={styles.modalBtnCancelText}>HỦY</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtnAdd} onPress={addCustomTime}><Text style={styles.modalBtnAddText}>THÊM {selectedHour}:{selectedMinute}</Text></TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {toastVisible && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-circle" size={20} color={colors.white} /><Text style={styles.toastText}>Đã gán thuốc thành công!</Text></View>}
+      {toastMessage !== '' && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-circle" size={20} color={colors.white} /><Text style={styles.toastText}>{toastMessage}</Text></View>}
 
       <View style={styles.appHeader}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} /></TouchableOpacity>
-        <View style={styles.logoCircleHeader}>
-          <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
-        </View>
-        <View><Text style={styles.headerTitle}>Gán Thuốc Mới</Text><Text style={styles.subTitle}>Cho BN: {params.name} ({params.id})</Text></View>
+        {/* 🔥 GÁN HÀM QUAY VỀ THÔNG MINH VÀO NÚT NÀY 🔥 */}
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+          <MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} />
+        </TouchableOpacity>
+        
+        <View style={styles.logoCircleHeader}><Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" /></View>
+        <View><Text style={styles.headerTitle}>Chỉ Định Điều Trị</Text><Text style={styles.subTitle}>Mã BN: {params.name} ({params.id})</Text></View>
       </View>
 
-      <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tên Thuốc (*)</Text>
-          <TouchableOpacity style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]} onPress={() => setMedicinePickerVisible(true)} activeOpacity={0.7}>
-            <Text style={{ color: formData.MedicineName ? colors.textDark : colors.textLight, fontSize: 16 }}>{formData.MedicineName || "Bấm để chọn thuốc từ Kho..."}</Text>
-            <MaterialCommunityIcons name="chevron-down" size={24} color={colors.textLight} />
-          </TouchableOpacity>
-        </View>
+      <View style={[styles.mainWrapper, { height: isDesktop ? height - 80 : 'auto' }]}>
+        <View style={[styles.splitContainer, !isDesktop && { flexDirection: 'column' }]}>
+          
+          <View style={[styles.formContainer, isDesktop && { flex: 5.5, marginRight: 15 }]}>
+            <ScrollView style={{ flex: 1, paddingRight: 5 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              
+              <TouchableOpacity style={[styles.scanButton, isAIScanning && { opacity: 0.8 }]} onPress={handleAIScan}><Text style={styles.scanButtonText}>{isAIScanning ? "Đang trích xuất..." : "Phân tích Đơn thuốc (AI OCR)"}</Text></TouchableOpacity>
 
-        {/* 🔥 GIAO DIỆN CHIA GIỜ TỰ ĐỘNG 🔥 */}
-        <View style={styles.autoScheduleBox}>
-          <Text style={styles.autoTitle}><MaterialCommunityIcons name="robot-outline" size={16} /> Chia giờ tự động (Khung 12 tiếng)</Text>
-          <View style={{flexDirection: 'row', gap: 10, alignItems: 'flex-end'}}>
-            <View style={{flex: 1}}>
-              <Text style={styles.subLabel}>Bắt đầu lúc</Text>
-              <TouchableOpacity style={styles.miniInput} onPress={() => setTimePickerVisible(true)}>
-                <Text style={{textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: colors.textDark}}>{selectedHour}:{selectedMinute}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{flex: 1}}>
-              <Text style={styles.subLabel}>Số lần / ngày</Text>
-              <TextInput 
-                style={[styles.miniInput, {textAlign: 'center', fontSize: 16, fontWeight: 'bold'}]}
-                placeholder="Vd: 6"
-                keyboardType="numeric"
-                value={autoFreq}
-                onChangeText={setAutoFreq}
-              />
-            </View>
-          </View>
-        </View>
+              {aiSuggestedMeds.length > 0 && (
+                <View style={styles.aiSuggestBox}>
+                  <Text style={styles.aiSuggestTitle}>Kết quả phân tích:</Text>
+                  <View style={styles.chipsContainer}>
+                    {aiSuggestedMeds.map((med, i) => (
+                      <TouchableOpacity key={i} style={styles.aiChip} onPress={() => { 
+                        const foundMed = medicineOptions.find(m => m.name === med);
+                        if (foundMed) handleSelectMedicine(foundMed);
+                        else setFormData({...formData, MedicineName: med}); 
+                        setAiSuggestedMeds(aiSuggestedMeds.filter(m => m !== med)); 
+                      }}>
+                        <Text style={styles.aiChipText}>{med}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Các Khung Giờ Uống/Nhỏ Mắt (*)</Text>
-          <View style={styles.chipsContainer}>
-            {formData.Time.map((time, i) => (
-              <TouchableOpacity key={i} style={styles.timeChipSelected} onPress={() => removeTime(time)} activeOpacity={0.6}>
-                <MaterialCommunityIcons name="clock-outline" size={16} color={colors.white} style={{marginRight: 4}} /><Text style={styles.chipTextSelected}>{time}</Text><MaterialCommunityIcons name="close" size={16} color={colors.white} style={{marginLeft: 6}} />
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity style={styles.timeChipAdd} onPress={() => setTimePickerVisible(true)}><MaterialCommunityIcons name="plus-circle-outline" size={18} color={colors.primary} style={{marginRight: 4}} /><Text style={{color: colors.primary, fontWeight: 'bold'}}>Thêm Giờ</Text></TouchableOpacity>
-          </View>
-        </View>
+              <View style={[styles.inputGroup, { zIndex: 100 }]}><Text style={styles.label}>Tên Thuốc *</Text>
+                <TextInput style={styles.input} placeholder="Tìm thuốc..." value={formData.MedicineName} onChangeText={(t) => { setFormData({...formData, MedicineName: t}); setShowDropdown(t.length >= 2); }} onFocus={() => setShowDropdown(formData.MedicineName.length >= 2)} />
+                {showDropdown && filteredMeds.length > 0 && (<View style={styles.autocompleteDropdown}><ScrollView style={{ maxHeight: 200 }}>{filteredMeds.map((m, idx) => (<TouchableOpacity key={idx} style={styles.autoCompleteItem} onPress={() => handleSelectMedicine(m)}><Text style={{fontSize: 14}}>{m.name}</Text></TouchableOpacity>))}</ScrollView></View>)}
+              </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Liều Lượng 1 Lần (*)</Text>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-            <TextInput style={[styles.input, {flex: 0.4, textAlign: 'center', outlineStyle: 'none' as any}]} placeholder="Vd: 1, 2" keyboardType="default" placeholderTextColor={colors.textLight} value={formData.DoseAmount} onChangeText={(text) => handleChange('DoseAmount', text)} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}}>
-              <View style={[styles.chipsContainer, {flexWrap: 'nowrap'}]}>
-                {unitOptions.map((unit, i) => (
-                  <TouchableOpacity key={i} style={[styles.chip, {paddingVertical: 8, paddingHorizontal: 15}, formData.DoseUnit === unit ? styles.chipSelected : null]} onPress={() => handleChange('DoseUnit', unit)}>
-                    <Text style={[styles.chipText, {fontSize: 14}, formData.DoseUnit === unit ? styles.chipTextSelected : null]}>{unit}</Text>
-                  </TouchableOpacity>
-                ))}
+              {isEyeDrops && (
+                <View style={styles.autoScheduleBox}>
+                  <Text style={styles.autoTitle}>⏰ Tự động chia (Khung 10h)</Text>
+                  <View style={{flexDirection: 'row', gap: 10}}>
+                    <View style={{flex: 1}}><Text style={styles.subLabel}>Bắt đầu (4 số)</Text><TextInput style={styles.miniInput} placeholder="0800" keyboardType="numeric" maxLength={4} value={autoStartTime} onChangeText={setAutoStartTime} /></View>
+                    <View style={{flex: 1}}><Text style={styles.subLabel}>Số lần/ngày</Text><TextInput style={styles.miniInput} placeholder="6" keyboardType="numeric" value={autoFreq} onChangeText={setAutoFreq} /></View>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Khung Giờ Sử Dụng (24h) *</Text>
+                <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
+                  <TextInput style={[styles.input, {flex: 1}]} placeholder="Gõ 4 số (Vd: 0800) rồi Enter..." keyboardType="numeric" maxLength={4} value={manualTime} onChangeText={setManualTime} onSubmitEditing={handleAddManualTime} />
+                  <TouchableOpacity style={[styles.timeChipAdd, {borderRadius: 8}]} onPress={handleAddManualTime}><Text style={{color: colors.primary, fontWeight: '800'}}>THÊM</Text></TouchableOpacity>
+                </View>
+                <View style={styles.chipsContainer}>
+                  {formData.Time.map((t, i) => (<TouchableOpacity key={i} style={styles.timeChipSelected} onPress={() => setFormData({...formData, Time: formData.Time.filter(x => x !== t)}) }><Text style={styles.chipTextSelected}>{t}</Text><MaterialCommunityIcons name="close" size={14} color="white" style={{marginLeft: 5}} /></TouchableOpacity>))}
+                </View>
+              </View>
+              
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Liều Lượng *</Text><View style={{flexDirection: 'row', gap: 5}}><TextInput style={[styles.input, {flex: 0.4, textAlign: 'center'}]} value={formData.DoseAmount} onChangeText={(t) => setFormData({...formData, DoseAmount: t})} /><ScrollView horizontal showsHorizontalScrollIndicator={false}><View style={styles.chipsContainer}>{unitOptions.map((u, i) => (<TouchableOpacity key={i} style={[styles.chip, formData.DoseUnit === u && styles.chipSelected]} onPress={() => setFormData({...formData, DoseUnit: u})}><Text style={[styles.chipText, formData.DoseUnit === u && styles.chipTextSelected]}>{u}</Text></TouchableOpacity>))}</View></ScrollView></View></View>
+                
+                <View style={{flex: 1}}><Text style={styles.label}>Cách Dùng</Text>
+                  {loadingData ? <ActivityIndicator size="small" color={colors.primary} /> : (
+                    <ScrollView style={{maxHeight: 120}} showsVerticalScrollIndicator={false}>
+                      <View style={styles.chipsContainer}>
+                        {filteredUsages.map((o, i) => (
+                          <TouchableOpacity key={i} style={[styles.chip, formData.Usage === o && styles.chipSelected]} onPress={() => setFormData({...formData, Usage: o})}>
+                            <Text style={[styles.chipText, formData.Usage === o && styles.chipTextSelected]}>{o}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  )}
+                </View>
+              </View>
+
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <View style={{flex: 1}}><Text style={styles.label}>Số Lượng Cấp</Text><TextInput style={styles.input} keyboardType="numeric" value={formData.Quantity} onChangeText={(t) => setFormData({...formData, Quantity: t})} /></View>
+                <View style={{flex: 1}}><Text style={styles.label}>Số Ngày Dùng *</Text><TextInput style={[styles.input, formData.DoseUnit === 'viên' && {backgroundColor: '#F0FDFA'}]} keyboardType="numeric" value={formData.Duration} onChangeText={(t) => setFormData({...formData, Duration: t})} editable={formData.DoseUnit !== 'viên'} /></View>
+                <View style={{flex: 1}}><Text style={styles.label}>Nhắc Nhở</Text><View style={styles.chipsContainer}>{reminderOptions.map((o, i) => (<TouchableOpacity key={i} style={[styles.chip, formData.Reminder_mode === o && styles.chipSelected]} onPress={() => setFormData({...formData, Reminder_mode: o})}><Text style={[styles.chipText, formData.Reminder_mode === o && styles.chipTextSelected]}>{o}</Text></TouchableOpacity>))}</View></View>
               </View>
             </ScrollView>
+            <TouchableOpacity style={styles.addToTempBtn} onPress={addToTempPrescription}><Text style={styles.addToTempText}>THÊM VÀO DANH SÁCH CHỈ ĐỊNH</Text></TouchableOpacity>
+          </View>
+
+          <View style={[styles.cartContainer, isDesktop && { flex: 4.5 }]}>
+            <View style={styles.cartHeader}><Text style={styles.cartTitle}>Phác Đồ Hiện Tại ({tempPrescription.length})</Text></View>
+            <ScrollView style={{ flex: 1, padding: 12 }}>
+              {tempPrescription.map((item, index) => (
+                <View key={index} style={styles.cartItem}>
+                  <View style={{flex: 1}}>
+                    <Text style={{fontWeight: '800', fontSize: 14}}>{item.MedicineName}</Text>
+                    <Text style={{fontSize: 12, color: colors.textLight}}>{item.DoseAmount} {item.DoseUnit} - {item.Usage} | {item.Duration} ngày</Text>
+                    <Text style={{fontSize: 12, color: colors.primary, fontWeight: '700'}}>⏰ {item.Time.join(', ')}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setTempPrescription(tempPrescription.filter((_, i) => i !== index))}><MaterialCommunityIcons name="delete-outline" size={22} color={colors.dangerText} /></TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={[styles.submitButton, tempPrescription.length === 0 && { opacity: 0.5 }]} onPress={submitFinalPrescription} disabled={tempPrescription.length === 0 || loading}>
+              {loading ? <ActivityIndicator color="white" /> : <Text style={styles.submitText}>XÁC NHẬN BAN HÀNH ĐƠN THUỐC</Text>}
+            </TouchableOpacity>
           </View>
         </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Cách Dùng</Text>
-          {loadingData ? <ActivityIndicator size="small" color={colors.primary} style={{alignItems: 'flex-start'}} /> : (
-            <View style={styles.chipsContainer}>
-              {usageOptions.map((opt, i) => <TouchableOpacity key={i} style={[styles.chip, formData.Usage === opt ? styles.chipSelected : null]} onPress={() => handleChange('Usage', opt)}><Text style={[styles.chipText, formData.Usage === opt ? styles.chipTextSelected : null]}>{opt}</Text></TouchableOpacity>)}
-            </View>
-          )}
-        </View>
-
-        <View style={{flexDirection: 'row', gap: 15}}>
-          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Cấp Số Lượng Tổng</Text><TextInput style={[styles.input, {outlineStyle: 'none' as any}]} placeholder="Vd: 30" placeholderTextColor={colors.textLight} value={formData.Quantity} onChangeText={(text) => handleChange('Quantity', text)} keyboardType="numeric" /></View>
-          <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>Nhắc nhở (App)</Text>
-            <View style={styles.chipsContainer}>
-              {reminderOptions.map((opt, i) => <TouchableOpacity key={i} style={[styles.chip, formData.Reminder_mode === opt ? styles.chipSelected : null]} onPress={() => handleChange('Reminder_mode', opt)}><Text style={[styles.chipText, formData.Reminder_mode === opt ? styles.chipTextSelected : null]}>{opt}</Text></TouchableOpacity>)}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời Gian Sử Dụng (Ngày)</Text>
-          <TextInput 
-            style={[styles.input, { backgroundColor: formData.DoseUnit === 'viên' ? '#F0FDF4' : colors.white, borderColor: formData.DoseUnit === 'viên' ? '#86EFAC' : '#E0E0E0', outlineStyle: 'none' as any }]} 
-            placeholder="Nhập số ngày hoặc tự tính..." 
-            placeholderTextColor={colors.textLight} 
-            value={formData.Duration} 
-            onChangeText={(text) => handleChange('Duration', text)} 
-            keyboardType="numeric"
-          />
-          {formData.DoseUnit === 'viên' && <Text style={{fontSize: 12, color: '#059669', marginTop: 5, fontStyle: 'italic'}}>* Hệ thống đang tự động tính số ngày dựa trên liều lượng.</Text>}
-        </View>
-
-        <TouchableOpacity style={styles.submitButton} onPress={submitData} disabled={loading}>
-          {loading ? <ActivityIndicator color={colors.headerText} /> : <><MaterialCommunityIcons name="content-save" size={24} color={colors.headerText} style={{marginRight: 8}} /><Text style={styles.submitText}>LƯU VÀO LỊCH</Text></>}
-        </TouchableOpacity>
-        <View style={{height: 40}} /> 
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.bg },
-  
-  // 🔥 STYLE CHO HỘP CHIA GIỜ TỰ ĐỘNG 🔥
-  autoScheduleBox: { backgroundColor: '#F0FDF4', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#BBF7D0', elevation: 1 },
-  autoTitle: { fontSize: 14, fontWeight: 'bold', color: '#166534', marginBottom: 10 },
-  subLabel: { fontSize: 13, color: '#166534', marginBottom: 6, fontWeight: '600' },
-  miniInput: { backgroundColor: 'white', paddingVertical: 12, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: '#86EFAC' },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.white, width: '80%', maxWidth: 350, borderRadius: 20, padding: 20, elevation: 10, overflow: 'hidden' }, 
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.headerText, textAlign: 'center', marginBottom: 15 },
-  medicineListItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', paddingHorizontal: 5 },
-  medicineListText: { fontSize: 16, color: colors.textDark, fontWeight: 'bold' },
-  pickerContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', height: 220, backgroundColor: '#F9FBE7', borderRadius: 12, paddingVertical: 10, overflow: 'hidden' },
-  pickerColumn: { flex: 1, alignItems: 'center', height: '100%' }, 
-  pickerHeader: { fontSize: 14, fontWeight: 'bold', color: colors.textLight, marginBottom: 5 },
-  scrollArea: { width: '100%', height: '100%', ...Platform.select({ web: { scrollbarWidth: 'thin', scrollbarColor: `${colors.primary} transparent` } }) }, 
-  scrollContent: { paddingVertical: 90 }, 
-  pickerItem: { paddingVertical: 8, alignItems: 'center', borderRadius: 8, marginHorizontal: 10 }, 
-  pickerItemActive: { backgroundColor: colors.primary },
-  pickerText: { fontSize: 18, color: colors.textLight }, 
-  pickerTextActive: { fontSize: 22, fontWeight: 'bold', color: colors.white },
-  pickerSeparator: { fontSize: 30, fontWeight: 'bold', color: colors.primary, marginHorizontal: 10 },
-  modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
-  modalBtnCancel: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: '#E0E0E0', borderRadius: 10, marginRight: 10 }, modalBtnCancelText: { color: colors.textDark, fontWeight: 'bold' },
-  modalBtnAdd: { flex: 1, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.primary, borderRadius: 10 }, modalBtnAddText: { color: colors.headerText, fontWeight: 'bold' },
-  toastContainer: { position: 'absolute', top: 30, right: 20, backgroundColor: colors.success, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 5 },
-  toastText: { color: colors.white, fontSize: 14, fontWeight: 'bold', marginLeft: 8 },
-  
-  appHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 15, elevation: 4 },
-  backButton: { marginRight: 15, padding: 5 }, 
-  
-  logoCircleHeader: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.headerText }, subTitle: { fontSize: 14, color: colors.headerText, opacity: 0.8 },
-  formContainer: { flex: 1, padding: 20 }, inputGroup: { marginBottom: 18 }, label: { fontSize: 15, fontWeight: '600', color: colors.textDark, marginBottom: 8 },
-  input: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 12, paddingHorizontal: 15, paddingVertical: 12, fontSize: 16, color: colors.textDark },
-  chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 5 }, chip: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, backgroundColor: colors.chipBg, borderRadius: 25, borderWidth: 1, borderColor: colors.chipBg }, chipSelected: { backgroundColor: colors.chipSelectedBg, borderColor: colors.chipSelectedBg }, chipText: { fontSize: 15, color: colors.chipText, fontWeight: '500' }, chipTextSelected: { color: colors.chipSelectedText, fontWeight: '700' },
-  timeChipSelected: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, backgroundColor: colors.primary, borderRadius: 25 }, timeChipAdd: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, backgroundColor: colors.white, borderRadius: 25, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed' },
-  submitButton: { backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, elevation: 3, borderWidth: 2, borderColor: colors.white }, submitText: { color: colors.headerText, fontSize: 16, fontWeight: 'bold' }
-});

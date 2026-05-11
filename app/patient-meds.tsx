@@ -5,8 +5,30 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router, useLocalSearchParams } from 'expo-router'; 
 
 const colors = {
-  bg: '#F5F9FC', primary: '#A5D6A7', headerText: '#1B5E20', tableHeader: '#C8E6C9', textDark: '#455A64', textLight: '#78909C', white: '#FFFFFF',
-  statusActive: '#2196F3', statusDone: '#4CAF50', statusSnooze: '#FF9800', statusMissed: '#F44336', dangerPastel: '#FFCDD2'
+  bg: '#F8FAFC', 
+  primary: '#0F766E', 
+  headerText: '#FFFFFF', 
+  tableHeader: '#F8FAFC', 
+  textDark: '#0F172A', 
+  textLight: '#64748B', 
+  white: '#FFFFFF',
+  statusActive: '#3B82F6', 
+  statusDone: '#10B981', 
+  statusSnooze: '#F59E0B', 
+  statusMissed: '#EF4444', 
+  dangerPastel: '#FEE2E2' 
+};
+
+const getIconByUsage = (usageStr: string) => {
+  if (!usageStr) return "pill"; 
+  const lowerUsage = usageStr.toLowerCase();
+  
+  if (lowerUsage.includes('nhỏ') || lowerUsage.includes('mắt')) return "water"; 
+  if (lowerUsage.includes('bôi') || lowerUsage.includes('ngoài') || lowerUsage.includes('thoa')) return "lotion";
+  if (lowerUsage.includes('xịt')) return "spray-bottle";
+  if (lowerUsage.includes('tiêm') || lowerUsage.includes('chích')) return "syringe";
+  
+  return "pill"; 
 };
 
 export default function PatientMedsScreen() {
@@ -25,7 +47,6 @@ export default function PatientMedsScreen() {
   const isDesktop = width >= 900; 
 
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
-  
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) router.replace('/');
@@ -179,19 +200,17 @@ export default function PatientMedsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       
-      {/* 🔥 CẬP NHẬT: MODAL HIỂN THỊ HÌNH ẢNH THUỐC 🔥 */}
       <Modal visible={isLogModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Xác Nhận Thay Bệnh Nhân</Text>
+            <Text style={styles.modalTitle}>Xác Nhận Cho Bệnh Nhân</Text>
             {selectedMed && (
               <View style={{alignItems: 'center', marginBottom: 25}}>
-                
                 <View style={styles.modalImageContainer}>
                   {selectedMed.ImageUrl ? (
                     <Image source={{ uri: selectedMed.ImageUrl }} style={styles.modalMedImage} resizeMode="cover" />
                   ) : (
-                    <MaterialCommunityIcons name="pill" size={40} color={colors.primary} />
+                    <MaterialCommunityIcons name={getIconByUsage(selectedMed.Usage) as any} size={40} color={colors.primary} />
                   )}
                 </View>
 
@@ -227,7 +246,10 @@ export default function PatientMedsScreen() {
 
       <View style={styles.appHeader}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} /></TouchableOpacity>
+          {/* 🔥 FIX LỖI NÚT BACK CHẾT ĐỨNG TRÊN WEB BẰNG CÁCH CHỈ ĐỊNH RÕ ĐƯỜNG DẪN */}
+          <TouchableOpacity onPress={() => router.replace('/patient')} style={styles.backButton}>
+            <MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} />
+          </TouchableOpacity>
           <View><Text style={styles.appName}>Lịch Sử Dụng Thuốc</Text><Text style={styles.appTagline}>{patientName} (Mã: {patientId})</Text></View>
         </View>
         <View style={styles.headerRight}>
@@ -252,10 +274,11 @@ export default function PatientMedsScreen() {
         ) : (
           <ScrollView horizontal={!isDesktop} showsHorizontalScrollIndicator={true} style={styles.tableScrollView} contentContainerStyle={{ minWidth: '100%', flexGrow: 1 }} >
             <View style={{ flex: 1, minWidth: isDesktop ? '100%' : 950, backgroundColor: colors.white }}>
+              
               <View style={styles.tableHeaderRow}>
                 <Text style={[styles.headerCell, { width: 90, textAlign: 'center' }]}>Thao tác</Text>
                 <Text style={[styles.headerCell, { flex: 2 }]}>Tên Thuốc</Text>
-                <Text style={[styles.headerCell, { width: 80, textAlign: 'center' }]}>Giờ Uống</Text>
+                <Text style={[styles.headerCell, { width: 90, textAlign: 'center' }]}>Giờ Sử Dụng</Text> 
                 <Text style={[styles.headerCell, { width: 80, textAlign: 'center' }]}>Liều</Text>
                 <Text style={[styles.headerCell, { width: 80, textAlign: 'center' }]}>Tổng</Text>
                 <Text style={[styles.headerCell, { width: 80, textAlign: 'center', color: '#E65100' }]}>Còn Lại</Text>
@@ -266,9 +289,11 @@ export default function PatientMedsScreen() {
 
               <FlatList
                 data={medications} showsVerticalScrollIndicator={true} style={{ flex: 1 }} keyExtractor={(item, index) => item.ID ? item.ID.toString() : index.toString()}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.headerText]} tintColor={colors.headerText} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
                 renderItem={({ item, index }) => {
-                  let remaining = item.calculatedRemaining; let isLowStock = typeof remaining === 'number' && remaining <= 5; 
+                  let remaining = item.calculatedRemaining; 
+                  let isLowStock = typeof remaining === 'number' && remaining <= 5; 
+                  
                   return (
                     <View style={[styles.tableRow, index % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
                       <View style={[styles.dataCell, { width: 90, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 }]}>
@@ -276,26 +301,25 @@ export default function PatientMedsScreen() {
                         <TouchableOpacity onPress={() => deleteMedication(item.ID, item.MedicineName, item.Time)} style={styles.deleteButton}><MaterialCommunityIcons name="trash-can-outline" size={18} color="#D32F2F" /></TouchableOpacity>
                       </View>
                       
-                      {/* 🔥 CẬP NHẬT: THÊM THUMBNAIL VÀO CỘT TÊN THUỐC 🔥 */}
                       <View style={[styles.dataCell, { flex: 2, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
                          {item.ImageUrl ? (
                              <Image source={{uri: item.ImageUrl}} style={{width: 32, height: 32, borderRadius: 8}} resizeMode="cover"/>
                          ) : (
                              <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center'}}>
-                                <MaterialCommunityIcons name="pill" size={18} color={colors.primary} />
+                                <MaterialCommunityIcons name={getIconByUsage(item.Usage) as any} size={18} color={colors.primary} />
                              </View>
                          )}
                          <Text style={[styles.boldText, {flex: 1}]} numberOfLines={2}>{item.MedicineName}</Text>
                       </View>
 
-                      <Text style={[styles.dataCell, { width: 80, textAlign: 'center', fontWeight: 'bold', color: '#E65100' }]}>{item.Time}</Text>
+                      <Text style={[styles.dataCell, { width: 90, textAlign: 'center', fontWeight: 'bold', color: '#E65100' }]}>{item.Time}</Text>
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center' }]}>{item.Dose}</Text>
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center' }]}>{item.Quantity || '-'}</Text>
                       <Text style={[styles.dataCell, { width: 80, textAlign: 'center', fontWeight: 'bold', fontSize: 16, color: isLowStock ? colors.statusMissed : colors.textDark }]}>{remaining}</Text>
                       <Text style={[styles.dataCell, { flex: 1 }]}>{item.Usage}</Text>
-                      <Text style={[styles.dataCell, { width: 70, textAlign: 'center', color: item.Reminder_mode === 'Bật' ? '#4CAF50' : '#F44336' }]}>{item.Reminder_mode === 'Bật' ? 'Bật' : 'Tắt'}</Text>
+                      <Text style={[styles.dataCell, { width: 70, textAlign: 'center', color: item.Reminder_mode === 'Bật' ? '#10B981' : '#EF4444' }]}>{item.Reminder_mode === 'Bật' ? 'Bật' : 'Tắt'}</Text>
                       <View style={[styles.dataCell, { width: 110, justifyContent: 'center', alignItems: 'center', borderRightWidth: 0 }]}>
-                        <TouchableOpacity onPress={() => openLogModal(item)} style={[styles.statusBadge, { backgroundColor: '#E3F2FD' }]}><MaterialCommunityIcons name="gesture-tap" size={16} color="#1976D2" style={{marginRight: 4}} /><Text style={[styles.statusText, {color: '#1976D2', fontSize: 12}]}>Nhật Ký</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => openLogModal(item)} style={[styles.statusBadge, { backgroundColor: '#E0F2FE' }]}><MaterialCommunityIcons name="gesture-tap" size={16} color="#0284C7" style={{marginRight: 4}} /><Text style={[styles.statusText, {color: '#0284C7', fontSize: 12}]}>Nhật Ký</Text></TouchableOpacity>
                       </View>
                     </View>
                   );
@@ -317,23 +341,22 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: colors.white, width: '90%', maxWidth: 420, borderRadius: 24, padding: 25, elevation: 10 }, 
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark, textAlign: 'center', marginBottom: 20 },
   
-  // Thêm style cho khung chứa ảnh trong Modal
   modalImageContainer: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', marginBottom: 15, overflow: 'hidden', borderWidth: 2, borderColor: '#BAE6FD' },
   modalMedImage: { width: '100%', height: '100%' },
 
   logActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginBottom: 20 }, logBtn: { flex: 1, paddingVertical: 18, borderRadius: 16, alignItems: 'center', elevation: 2 },
-  logBtnText: { color: colors.white, fontWeight: 'bold', fontSize: 14 }, modalBtnCancel: { paddingVertical: 14, alignItems: 'center', backgroundColor: '#F5F5F5', borderRadius: 12 },
+  logBtnText: { color: colors.white, fontWeight: 'bold', fontSize: 14 }, modalBtnCancel: { paddingVertical: 14, alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 12 },
   toastContainer: { position: 'absolute', top: 30, right: 20, backgroundColor: colors.statusDone, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 5 },
   toastText: { color: colors.white, fontSize: 14, fontWeight: 'bold', marginLeft: 8 }, appHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 20, elevation: 4 },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 }, headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 }, headerActionBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 }, headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 }, headerActionBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 10 },
   backButton: { marginRight: 15, padding: 5 }, appName: { fontSize: 22, fontWeight: '800', color: colors.headerText }, appTagline: { fontSize: 15, color: colors.headerText, opacity: 0.9, marginTop: 2, fontWeight: '600' },
   contentContainer: { flex: 1, padding: 15, width: '100%' }, sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 15, marginLeft: 5 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark }, refreshBtn: { marginLeft: 10, padding: 5, backgroundColor: '#E8F5E9', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  pullToRefreshHint: { fontSize: 13, color: colors.textLight, fontStyle: 'italic', marginBottom: 2 }, tableScrollView: { flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E0E0E0' },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textDark }, refreshBtn: { marginLeft: 10, padding: 5, backgroundColor: '#F1F5F9', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  pullToRefreshHint: { fontSize: 13, color: colors.textLight, fontStyle: 'italic', marginBottom: 2 }, tableScrollView: { flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
   tableHeaderRow: { flexDirection: 'row', backgroundColor: colors.tableHeader }, headerCell: { paddingVertical: 16, paddingHorizontal: 10, color: colors.textDark, fontWeight: '700', fontSize: 14, borderRightWidth: 1, borderRightColor: 'rgba(0,0,0,0.05)', textAlign: 'left' },
-  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F0F0F0', alignItems: 'center' }, rowEven: { backgroundColor: colors.white }, rowOdd: { backgroundColor: '#F1F8E9' }, 
-  dataCell: { paddingVertical: 14, paddingHorizontal: 10, color: colors.textDark, fontSize: 14, borderRightWidth: 1, borderRightColor: '#F0F0F0' }, boldText: { fontWeight: '600', color: colors.textDark },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' }, rowEven: { backgroundColor: colors.white }, rowOdd: { backgroundColor: '#F8FAFC' }, 
+  dataCell: { paddingVertical: 14, paddingHorizontal: 10, color: colors.textDark, fontSize: 14, borderRightWidth: 1, borderRightColor: '#F1F5F9' }, boldText: { fontWeight: '600', color: colors.textDark },
   statusBadge: { flexDirection: 'row', paddingVertical: 8, paddingHorizontal: 8, borderRadius: 16, elevation: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }, statusText: { color: colors.white, fontSize: 13, fontWeight: 'bold' },
   deleteButton: { padding: 8, backgroundColor: colors.dangerPastel, borderRadius: 10 }, emptyContainer: { padding: 50, alignItems: 'center' }, emptyText: { color: colors.textLight, fontSize: 15, fontStyle: 'italic' },
-  fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: colors.primary, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5 }
+  fab: { position: 'absolute', bottom: 30, right: 30, backgroundColor: colors.primary, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }
 });

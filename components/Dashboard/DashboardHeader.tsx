@@ -38,6 +38,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const renderCompactCard = (med: any, type: 'eye' | 'oral') => {
     const isEyeDrop = type === 'eye';
     const isLocked = isEyeDrop && cooldown > 0; 
+    const isSnoozed = med.isSnoozed; 
 
     return (
       <View key={med.MedicineName} style={[styles.compactCard, isEyeDrop ? styles.eyeDropCard : styles.oralCard]}>
@@ -55,13 +56,21 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </View>
         
         <TouchableOpacity 
-          style={[styles.compactBtn, isLocked ? styles.btnLocked : (isEyeDrop ? styles.btnEyeDrop : styles.btnOral)]} 
+          style={[
+            styles.compactBtn, 
+            isLocked ? styles.btnLocked : 
+            (isSnoozed ? styles.btnSnoozed : (isEyeDrop ? styles.btnEyeDrop : styles.btnOral))
+          ]} 
           onPress={() => onOpenLogModal(med)}
           disabled={isLocked}
         >
-          <MaterialCommunityIcons name={isLocked ? "timer-sand" : "check-circle"} size={18} color="white" />
-          <Text style={styles.compactBtnText}>
-            {isLocked ? `Chờ ${Math.floor(cooldown / 60)}p` : 'Xác nhận'}
+          <MaterialCommunityIcons 
+             name={isLocked ? "timer-sand" : (isSnoozed ? "alarm-snooze" : "check-circle")} 
+             size={18} 
+             color={isSnoozed ? "#9A3412" : "white"} 
+          />
+          <Text style={[styles.compactBtnText, isSnoozed && {color: '#9A3412'}]}>
+            {isLocked ? `Chờ ${Math.floor(cooldown / 60)}p` : (isSnoozed ? 'Đã hẹn lại' : 'Xác nhận')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -70,17 +79,18 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   return (
     <View style={styles.wrapper}>
-      {/* 🌟 MẢNG NỀN CONG TẠO CHIỀU SÂU VÀ ĐIỂM NHẤN 🌟 */}
+      {/* 🔥 MÀU NỀN CONG CHUYỂN SANG TEAL ĐỂ HỢP NHẤT VỚI HEADER TRÊN CÙNG 🔥 */}
       <View style={styles.curveBackground} />
 
       <View style={styles.dashboardContainer}>
         <View style={styles.headerRow}>
           <View>
+            {/* 🔥 CHỮ CHUYỂN SANG MÀU TRẮNG CHO NỔI BẬT 🔥 */}
             <Text style={styles.greetingText}>Xin chào,</Text>
             <Text style={styles.patientName}>{patientName}</Text>
           </View>
           <TouchableOpacity style={styles.avatarBtn} onPress={onOpenProfile}>
-            <MaterialCommunityIcons name="face-man-profile" size={32} color={colors.primary} />
+            <MaterialCommunityIcons name="face-man-profile" size={32} color="#14B8A6" />
           </TouchableOpacity>
         </View>
 
@@ -94,7 +104,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           </View>
         </View>
 
-        {nextDoses.length > 0 && !loading && (
+        {nextDoses.length > 0 && !loading ? (
           <View style={styles.heroContainer}>
             <View style={styles.heroTimeHeader}>
               <View style={styles.timeIconWrap}>
@@ -123,6 +133,18 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               </View>
             )}
           </View>
+        ) : (
+          !loading && (
+            <View style={styles.emptyStateContainer}>
+              <View style={styles.emptyStateIconCircle}>
+                 <MaterialCommunityIcons name="check-decagram" size={45} color="#10B981" />
+              </View>
+              <Text style={styles.emptyStateTitle}>Tuyệt vời!</Text>
+              <Text style={styles.emptyStateSub}>
+                 Bạn đã xử lý xong các cữ thuốc hiện tại.{'\n'}Hãy nghỉ ngơi và giữ gìn sức khỏe nhé! 🌿
+              </Text>
+            </View>
+          )
         )}
       </View>
     </View>
@@ -131,28 +153,16 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
 const styles = StyleSheet.create({
   wrapper: { position: 'relative' },
-  
-  // CHIẾC NỀN CONG "THẦN THÁNH" GIÚP APP TRÔNG CAO CẤP HẲN LÊN
   curveBackground: {
-    position: 'absolute',
-    top: -500, // Đẩy tít lên trên để che phần Safe Area
-    left: -50,
-    right: -50,
-    height: 680,
-    backgroundColor: '#D1FAE5', // Màu xanh mint pastel dịu nhẹ
-    borderBottomLeftRadius: 120, // Bo tròn cực mạnh
-    borderBottomRightRadius: 120,
-    zIndex: 0,
+    position: 'absolute', top: -500, left: -50, right: -50, height: 680,
+    backgroundColor: '#14B8A6', borderBottomLeftRadius: 120, borderBottomRightRadius: 120, zIndex: 0,
   },
-
   dashboardContainer: { padding: 20, paddingBottom: 5, zIndex: 1 },
-  
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
-  greetingText: { fontSize: 16, color: '#064E3B', opacity: 0.8 }, // Đổi màu chữ cho hợp với nền mới
-  patientName: { fontSize: 28, fontWeight: 'bold', color: '#064E3B' },
+  greetingText: { fontSize: 16, color: 'rgba(255, 255, 255, 0.85)' }, // Chữ trắng mờ nhẹ
+  patientName: { fontSize: 28, fontWeight: 'bold', color: '#FFFFFF' }, // Chữ trắng sáng
   avatarBtn: { width: 54, height: 54, borderRadius: 27, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
   
-  // CARD TIẾN ĐỘ NỔI LÊN MỀM MẠI
   progressCard: { 
     backgroundColor: 'white', padding: 20, borderRadius: 24, marginBottom: 20, 
     elevation: 6, shadowColor: '#94A3B8', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 15 
@@ -163,7 +173,6 @@ const styles = StyleSheet.create({
   progressBarBg: { height: 10, backgroundColor: '#F1F5F9', borderRadius: 5, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#10B981', borderRadius: 5 },
   
-  // CARD THUỐC SIÊU TO KHỔNG LỒ
   heroContainer: { 
     backgroundColor: 'white', borderRadius: 30, padding: 20, 
     elevation: 8, shadowColor: '#64748B', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.12, shadowRadius: 20,
@@ -172,19 +181,15 @@ const styles = StyleSheet.create({
   heroTimeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   timeIconWrap: { backgroundColor: colors.timeColor, padding: 6, borderRadius: 12 },
   heroTimeText: { fontSize: 22, fontWeight: 'bold', color: colors.textDark, marginLeft: 12 },
-  
   categorySection: { marginBottom: 12 },
   categoryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingLeft: 4 },
   categoryTitle: { fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
   
-  // BỎ VIỀN, THÊM NỀN NHẸ CHO THẺ THUỐC
   compactCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 20, marginBottom: 10 },
   eyeDropCard: { backgroundColor: '#F0F9FF' },
   oralCard: { backgroundColor: '#F0FDF4' },
-  
   compactIconBox: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15, overflow: 'hidden', backgroundColor: 'white', elevation: 2, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, shadowRadius: 3 },
   doseImage: { width: '100%', height: '100%' },
-  
   compactInfo: { flex: 1 },
   doseName: { fontSize: 17, fontWeight: 'bold', color: colors.textDark, marginBottom: 4 },
   doseAmount: { fontSize: 14, color: '#64748B' },
@@ -193,5 +198,17 @@ const styles = StyleSheet.create({
   btnEyeDrop: { backgroundColor: '#0284C7' },
   btnOral: { backgroundColor: '#059669' },
   btnLocked: { backgroundColor: '#94A3B8' },
-  compactBtnText: { color: 'white', fontSize: 14, fontWeight: 'bold', marginLeft: 6 }
+  btnSnoozed: { backgroundColor: '#FFEDD5', borderWidth: 1, borderColor: '#FDBA74', elevation: 0 },
+  compactBtnText: { color: 'white', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
+
+  emptyStateContainer: {
+    backgroundColor: 'white', borderRadius: 30, padding: 30, alignItems: 'center', justifyContent: 'center',
+    elevation: 8, shadowColor: '#64748B', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.12, shadowRadius: 20,
+    borderWidth: 1, borderColor: '#F8FAFC',
+  },
+  emptyStateIconCircle: {
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+  },
+  emptyStateTitle: { fontSize: 24, fontWeight: '900', color: '#064E3B', marginBottom: 10 },
+  emptyStateSub: { fontSize: 15, color: '#475569', textAlign: 'center', lineHeight: 24, fontWeight: '500', paddingHorizontal: 10 }
 });

@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Modal, Platform, Image, FlatList, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView, SafeAreaView, Modal, Platform, FlatList, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Papa from 'papaparse';
-import * as ImagePicker from 'expo-image-picker'; // 🔥 THÊM THƯ VIỆN CHỤP ẢNH 🔥
+import * as ImagePicker from 'expo-image-picker'; 
 
 const colors = {
   bg: '#F8FAFC', headerBgPastel: '#FB923C', white: '#FFFFFF', carbonDark: '#1E293B',     
@@ -45,7 +45,7 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
   const isDesktop = width >= 900; 
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isScanning, setIsScanning] = useState(false); // 🔥 STATE CHO AI SCAN 🔥
+  const [isScanning, setIsScanning] = useState(false); 
   
   const [tempPrescription, setTempPrescription] = useState<any[]>([]);
   const [assignForm, setAssignForm] = useState({ 
@@ -61,6 +61,8 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
   const [usageOptions, setUsageOptions] = useState<string[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(false);
 
+  const [aiSuggestedMeds, setAiSuggestedMeds] = useState<string[]>([]);
+
   const timeRef = useRef<TextInput>(null); 
   const dosageRef = useRef<TextInput>(null); 
   const methodRef = useRef<TextInput>(null); 
@@ -68,72 +70,81 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
 
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
-  // 🔥 HÀM XỬ LÝ CHỤP ẢNH VÀ ĐỌC BẰNG GEMINI AI 🔥
-  const handleScanPrescription = async () => {
-    if (Platform.OS === 'web') {
-        alert("Tính năng quét AI bằng Camera hiện tại hoạt động tốt nhất trên thiết bị di động (App).");
-        // Có thể mở rộng cho web tải ảnh lên sau, tạm thời chặn trên web.
-    }
+  const processImageWithAI = async (base64Image: string) => {
+    setIsScanning(true);
+    setAiSuggestedMeds([]); 
+    try {
+      const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
 
-    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-    if (permissionResult.granted === false) {
-      alert("Bạn cần cho phép truy cập camera để sử dụng tính năng này!");
-      return;
-    }
+      // 🔥 DÁN API KEY CỦA BẠN VÀO ĐÂY 🔥
+      const API_KEY = 'AIzaSyBWvuiX3wPb3Sg52O2ncB1vPOOrakEzq7g'; 
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-    const result = await ImagePicker.launchCameraAsync({
-      base64: true, 
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: "Đọc ảnh toa thuốc này và trích xuất danh sách tên thuốc. LƯU Ý QUAN TRỌNG: Trên toa, tên thương mại (tên thuốc cần lấy) thường được viết TRONG DẤU NGOẶC ĐƠN '()', còn bên ngoài thường là tên hoạt chất. Hãy ưu tiên trích xuất tên thuốc nằm TRONG DẤU NGOẶC. Nếu dòng nào không có dấu ngoặc, hãy lấy tên chính. Chỉ trả về ĐÚNG 1 chuỗi JSON theo cấu trúc: { 'meds': ['Tên thuốc 1', 'Tên thuốc 2', ...] }. Tuyệt đối không kèm chữ nào khác ngoài JSON." },
+              { inline_data: { mime_type: "image/jpeg", data: cleanBase64 } }
+            ]
+          }],
+          safetySettings: [
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }
+          ]
+        })
+      });
+
+      const json = await response.json();
+      if (json.error) throw new Error(json.error.message);
+      if (!json.candidates || json.candidates.length === 0) throw new Error("Hệ thống bị chặn hoặc không phản hồi.");
+
+      const aiText = json.candidates[0].content.parts[0].text;
+      
+      const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Dữ liệu trả về không hợp lệ.");
+
+      const data = JSON.parse(jsonMatch[0]);
+
+      if (data.meds && data.meds.length > 0) {
+          setAiSuggestedMeds(data.meds); 
+          if (Platform.OS === 'web') alert(`Đã nhận diện được ${data.meds.length} loại thuốc! Hãy nhấp vào danh sách để nhập nhanh.`);
+          else Alert.alert("Hoàn tất!", `Đã nhận diện ${data.meds.length} loại thuốc. Hãy nhấp vào danh sách để nhập nhanh.`);
+      } else {
+          Alert.alert("Thông báo", "Hệ thống không nhận diện được tên thuốc nào rõ ràng.");
+      }
+    } catch (error: any) {
+      console.error("Lỗi trích xuất:", error);
+      Alert.alert("Thông báo", "Không thể trích xuất dữ liệu từ ảnh này. Vui lòng nhập thủ công.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handlePickFile = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
       quality: 0.5,
     });
-
     if (!result.canceled && result.assets && result.assets[0].base64) {
-      const base64Image = result.assets[0].base64;
-      setIsScanning(true);
-      
-      try {
-        // 🔥🔥🔥 DÁN API KEY CỦA BẠN VÀO DÒNG BÊN DƯỚI 🔥🔥🔥
-        const API_KEY = 'AIzaSyDH_khyIyH5OJVh_NrEQIs6E3aJrx6JMXk'; 
-        
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+      processImageWithAI(result.assets[0].base64);
+    }
+  };
 
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: "Hãy đọc ảnh toa thuốc này và trả về định dạng JSON gồm: 'id' (Mã bệnh nhân, nếu có) và 'meds' (mảng tên các loại thuốc). Chỉ trả về JSON, không kèm lời giải thích hay markdown ```json." },
-                { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-              ]
-            }]
-          })
-        });
-
-        const json = await response.json();
-        
-        if (json.error) {
-            throw new Error(json.error.message);
-        }
-
-        const aiText = json.candidates[0].content.parts[0].text;
-        const cleanJson = aiText.replace(/```json|```/g, "").trim();
-        const data = JSON.parse(cleanJson);
-
-        if (data.meds && data.meds.length > 0) {
-            setAssignForm(prev => ({ ...prev, medName: data.meds[0] }));
-            Alert.alert(
-                "Đã quét xong!", 
-                `Tìm thấy ${data.meds.length} loại thuốc. Đã điền tạm thuốc đầu tiên: ${data.meds[0]}. \n\nBác sĩ vui lòng kiểm tra lại.`
-            );
-        } else {
-            Alert.alert("Thông báo", "AI không tìm thấy tên thuốc nào rõ ràng trong ảnh.");
-        }
-      } catch (error: any) {
-        console.error("Lỗi AI:", error);
-        Alert.alert("Lỗi quét ảnh", "AI không đọc được ảnh này (Hoặc cấu hình API Key chưa đúng). Vui lòng nhập tay.");
-      } finally {
-        setIsScanning(false);
-      }
+  const handleTakePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissionResult.granted) { alert("Cần quyền truy cập Camera!"); return; }
+    const result = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets && result.assets[0].base64) {
+      processImageWithAI(result.assets[0].base64);
     }
   };
 
@@ -161,6 +172,7 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
       setTempPrescription([]);
       setAssignForm({ medName: '', imageUrl: '', dosageValue: '', dosageUnit: 'viên', usageMethod: 'Uống sau ăn', times: [], totalQty: '', reminder: true });
       setAutoFreq('');
+      setAiSuggestedMeds([]);
     }
   }, [visible]);
 
@@ -172,8 +184,8 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
 
   const handleAddToTemp = () => {
     if (!assignForm.medName || !assignForm.dosageValue || assignForm.times.length === 0) {
-        if (Platform.OS === 'web') return window.alert('Thiếu thông tin Thuốc, Khung giờ, Liều.');
-        return Alert.alert('Thiếu thông tin', 'Kiểm tra Tên thuốc, Khung Giờ, Liều lượng.');
+        if (Platform.OS === 'web') return window.alert('Vui lòng nhập đầy đủ Tên thuốc, Giờ dùng và Liều lượng.');
+        return Alert.alert('Thiếu thông tin', 'Vui lòng kiểm tra lại Tên thuốc, Khung Giờ, Liều lượng.');
     }
     setTempPrescription([...tempPrescription, { ...assignForm, tempId: Date.now() }]);
     setAssignForm({ ...assignForm, medName: '', imageUrl: '', dosageValue: '', totalQty: '', times: [] });
@@ -181,21 +193,21 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
   };
 
   const handleSavePrescription = async () => {
-    if (tempPrescription.length === 0) { if (Platform.OS === 'web') return window.alert('Toa trống!'); return Alert.alert('Cảnh báo', 'Toa thuốc trống!'); }
+    if (tempPrescription.length === 0) { if (Platform.OS === 'web') return window.alert('Danh sách thuốc đang trống!'); return Alert.alert('Cảnh báo', 'Danh sách thuốc đang trống!'); }
     setIsSubmitting(true); let successCount = 0;
     try {
       for (const med of tempPrescription) {
         const payload = { action: 'addRemind', data: { PatientsID: patient.PatientID, MedicineName: med.medName, ImageUrl: med.imageUrl, Time: med.times.join(', '), Reminder_mode: med.reminder ? 'Bật' : 'Tắt', Status: 'Chưa sử dụng', Usage: med.usageMethod, Quantity: med.totalQty, Dose: `${med.dosageValue} ${med.dosageUnit}` } };
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
         const textResult = await res.text(); let jsonResult;
-        try { jsonResult = JSON.parse(textResult); } catch (err) { throw new Error('Lỗi Server'); }
+        try { jsonResult = JSON.parse(textResult); } catch (err) { throw new Error('Lỗi máy chủ'); }
         if (jsonResult.status === 'success') successCount++; else throw new Error(jsonResult.message);
       }
       if (successCount === tempPrescription.length) {
-        if (Platform.OS === 'web') window.alert(`Đã gán ${successCount} thuốc cho ${patient.Name}.`); else Alert.alert('Hoàn tất!', `Đã gán ${successCount} thuốc cho ${patient.Name}.`);
+        if (Platform.OS === 'web') window.alert(`Đã lưu thành công ${successCount} thuốc cho bệnh nhân ${patient.Name}.`); else Alert.alert('Hoàn tất!', `Đã lưu ${successCount} thuốc cho ${patient.Name}.`);
         onClose(); 
       }
-    } catch (error: any) { if (Platform.OS === 'web') window.alert('Lỗi: ' + error.message); else Alert.alert('Lỗi', error.message); } 
+    } catch (error: any) { if (Platform.OS === 'web') window.alert('Đã xảy ra lỗi: ' + error.message); else Alert.alert('Lỗi', error.message); } 
     finally { setIsSubmitting(false); }
   };
 
@@ -216,29 +228,44 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
           
           <ScrollView style={{flex: 1.5, backgroundColor: '#fff', borderRadius: 16, padding: 20, elevation: 2}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             
-            {/* 🔥 NÚT CHỤP TOA THUỐC AI ĐƯỢC ĐẶT Ở ĐÂY 🔥 */}
-            <TouchableOpacity 
-                style={styles.scanPhotoBtn} 
-                onPress={handleScanPrescription}
-                disabled={isScanning}
-            >
-                {isScanning ? (
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                        <ActivityIndicator color="#fff" style={{marginRight: 10}} />
-                        <Text style={styles.scanPhotoText}>AI ĐANG PHÂN TÍCH...</Text>
+            <Text style={[styles.fieldLabel, {marginTop: 0, marginBottom: 12}]}>Trích xuất tên thuốc tự động</Text>
+            <View style={{flexDirection: 'row', gap: 10, marginBottom: 25}}>
+                <TouchableOpacity style={[styles.scanActionBtn, { backgroundColor: '#818CF8' }]} onPress={handlePickFile} disabled={isScanning}>
+                    <MaterialCommunityIcons name="file-image-outline" size={22} color="#fff" />
+                    <Text style={styles.scanActionText}>TẢI ẢNH LÊN</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.scanActionBtn, { backgroundColor: '#6366F1' }]} onPress={handleTakePhoto} disabled={isScanning}>
+                    <MaterialCommunityIcons name="camera-outline" size={22} color="#fff" />
+                    <Text style={styles.scanActionText}>CHỤP ẢNH ĐƠN</Text>
+                </TouchableOpacity>
+            </View>
+
+            {isScanning && (
+                <View style={styles.aiLoadingBox}>
+                    <ActivityIndicator color="#6366F1" size="small" />
+                    <Text style={styles.aiLoadingText}>Hệ thống đang xử lý hình ảnh...</Text>
+                </View>
+            )}
+
+            {aiSuggestedMeds.length > 0 && (
+                <View style={styles.suggestedAiBox}>
+                    <Text style={styles.suggestedAiTitle}>Danh sách thuốc nhận diện được (Nhấp để chọn)</Text>
+                    <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10}}>
+                        {aiSuggestedMeds.map((med, idx) => (
+                            <TouchableOpacity key={idx} style={styles.aiTagBtn} onPress={() => setAssignForm(prev => ({ ...prev, medName: med }))}>
+                                <Text style={styles.aiTagText}>{med}</Text>
+                                <MaterialCommunityIcons name="plus-circle-outline" size={14} color="#fff" style={{marginLeft: 5}}/>
+                            </TouchableOpacity>
+                        ))}
                     </View>
-                ) : (
-                    <>
-                        <MaterialCommunityIcons name="camera-plus" size={24} color="#fff" />
-                        <Text style={styles.scanPhotoText}>CHỤP & ĐỌC TOA THUỐC BẰNG AI</Text>
-                    </>
-                )}
-            </TouchableOpacity>
+                </View>
+            )}
 
             <View style={{zIndex: 50}}>
               <Text style={styles.fieldLabel}>Tên Thuốc / Sản phẩm (*)</Text>
               <TouchableOpacity style={[styles.fieldInput, {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}]} onPress={() => setShowMedDropdown(!showMedDropdown)}>
-                <Text style={{color: assignForm.medName ? colors.carbonDark : '#9CA3AF', fontSize: 15}}>{assignForm.medName || 'Bấm để chọn từ Kho D&C...'}</Text>
+                <Text style={{color: assignForm.medName ? colors.carbonDark : '#9CA3AF', fontSize: 15}}>{assignForm.medName || 'Bấm để chọn hoặc dùng trích xuất tự động...'}</Text>
                 <MaterialCommunityIcons name={showMedDropdown ? "chevron-up" : "chevron-down"} size={22} color="#9CA3AF" />
               </TouchableOpacity>
 
@@ -379,28 +406,14 @@ export const AssignMedModal: React.FC<AssignMedModalProps> = ({ visible, patient
 };
 
 const styles = StyleSheet.create({
-  // 🔥 STYLE CHO NÚT SCAN AI 🔥
-  scanPhotoBtn: {
-    backgroundColor: '#6366F1', 
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-  },
-  scanPhotoText: {
-    color: '#fff',
-    fontWeight: '900',
-    marginLeft: 10,
-    fontSize: 15,
-    letterSpacing: 1
-  },
-
+  scanActionBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  scanActionText: { color: '#fff', fontWeight: '900', marginLeft: 8, fontSize: 14, letterSpacing: 0.5 },
+  suggestedAiBox: { backgroundColor: '#F3E5F5', padding: 15, borderRadius: 12, marginBottom: 25, borderWidth: 1, borderColor: '#E1BEE7' },
+  suggestedAiTitle: { fontSize: 14, fontWeight: '800', color: '#7B1FA2' },
+  aiTagBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#9C27B0', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  aiTagText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  aiLoadingBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 10 },
+  aiLoadingText: { color: '#6366F1', fontWeight: '700', fontSize: 14 },
   header: { backgroundColor: colors.headerBgPastel, paddingVertical: 18, paddingHorizontal: '2%', borderBottomLeftRadius: 28, borderBottomRightRadius: 28, elevation: 8, shadowColor: colors.headerBgPastel, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, marginBottom: 10 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
   navBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', borderRadius: 20 },

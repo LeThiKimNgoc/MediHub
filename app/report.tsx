@@ -4,14 +4,23 @@ import Papa from 'papaparse';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, router } from 'expo-router'; 
 
-// GỌI 3 COMPONENT VỪA TÁCH VÀO ĐÂY
+// GỌI 3 COMPONENT CON VÀO
 import { SyntheticTab } from '../components/Reports/SyntheticTab';
 import { LogTab } from '../components/Reports/LogTab';
 import { IndividualTab } from '../components/Reports/IndividualTab';
 
+// 🔥 BẢNG MÀU CHUẨN QUỐC TẾ (SAAS DASHBOARD)
 const colors = {
-  bg: '#F8FAFC', headerBgPastel: '#A855F7', white: '#FFFFFF', carbonDark: '#1E293B',     
-  textLight: '#78909C', statusDone: '#10B981', statusSnooze: '#F59E0B', statusMissed: '#EF4444'
+  bg: '#F8FAFC',          // Nền tổng thể xám cực nhạt
+  surface: '#FFFFFF',     // Nền khối trắng tinh
+  primary: '#7C3AED',     // Tím Violet hiện đại (Chuyên nghiệp hơn màu tím cũ)
+  primaryLight: '#F5F3FF',// Tím nhạt cho nền active
+  textDark: '#0F172A',    // Đen than cho Text chính
+  textMuted: '#64748B',   // Xám nhạt cho text phụ
+  border: '#E2E8F0',      // Màu viền mỏng, thanh lịch
+  statusDone: '#10B981', 
+  statusSnooze: '#F59E0B', 
+  statusMissed: '#EF4444'
 };
 
 export default function ReportScreen() {
@@ -19,20 +28,21 @@ export default function ReportScreen() {
   const [logs, setLogs] = useState<any[]>([]);
   const [syntheticData, setSyntheticData] = useState<any>(null);
   const [individualData, setIndividualData] = useState<any[]>([]);
+  const [remindData, setRemindData] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
 
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 900; 
+  const isDesktop = width >= 1024; 
   const isMobile = width < 768;
   const [isZoomed, setIsZoomed] = useState(false); 
-  const chartWidth = isDesktop ? (width - 120) / 2 : width - 80;
+  const chartWidth = isDesktop ? (width - 320) / 2 : width - 80; // Trừ hao khoảng cách Sidebar
 
   const handleLogout = () => {
     if (Platform.OS === 'web') {
       if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?')) router.replace('/');
     } else {
-      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?', [
+      Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
         { text: 'Hủy', style: 'cancel' },
         { text: 'Đăng xuất', style: 'destructive', onPress: () => router.replace('/') } 
       ]);
@@ -46,63 +56,29 @@ export default function ReportScreen() {
     const gidLog = '1373475002'; 
     const gidSynthetic = '297712298'; 
     const gidIndividual = '1749901529'; 
+    const gidRemind = '2073748495'; 
     
     const t = new Date().getTime();
     try {
-      // Ép hệ thống tải dữ liệu mới nhất, bỏ qua bộ nhớ đệm
-      const [resLog, resSynthetic, resIndividual] = await Promise.all([
+      const [resLog, resSynthetic, resIndividual, resRemind] = await Promise.all([
         fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}&t=${t}`, { cache: 'no-store' }),
         fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidSynthetic}&t=${t}`, { cache: 'no-store' }),
-        fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidIndividual}&t=${t}`, { cache: 'no-store' })
+        fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidIndividual}&t=${t}`, { cache: 'no-store' }),
+        fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidRemind}&t=${t}`, { cache: 'no-store' }) 
       ]);
 
-      const [csvLog, csvSynthetic, csvIndividual] = await Promise.all([
+      const [csvLog, csvSynthetic, csvIndividual, csvRemind] = await Promise.all([
         resLog.ok ? resLog.text() : Promise.resolve(""),
         resSynthetic.ok ? resSynthetic.text() : Promise.resolve(""),
-        resIndividual.ok ? resIndividual.text() : Promise.resolve("")
+        resIndividual.ok ? resIndividual.text() : Promise.resolve(""),
+        resRemind.ok ? resRemind.text() : Promise.resolve("")
       ]);
 
-      if (csvLog) {
-          Papa.parse(csvLog, { 
-              header: true, skipEmptyLines: true, 
-              complete: (res) => {
-                  // Lọc mềm mỏng: Miễn dòng có dữ liệu là lấy
-                  const validLogs = res.data.filter((item: any) => Object.values(item).some(v => v !== ""));
-                  setLogs(validLogs.reverse());
-              }
-          });
-      }
-      
-      if (csvSynthetic) {
-          Papa.parse(csvSynthetic, { 
-              header: true, skipEmptyLines: true, 
-              complete: (res) => {
-                  // 🔥 ĐÃ SỬA: Bỏ điều kiện tên cột khắt khe, chỉ cần dòng đó không rỗng hoàn toàn 🔥
-                  const validRows = res.data.filter((row: any) => Object.values(row).some(v => v !== ""));
-                  if (validRows.length > 0) {
-                      setSyntheticData(validRows[0]);
-                  } else {
-                      setSyntheticData(null);
-                  }
-              } 
-          });
-      }
-      
-      if (csvIndividual) {
-        Papa.parse(csvIndividual, {
-          header: true, skipEmptyLines: true,
-          complete: (res) => {
-            // 🔥 ĐÃ SỬA: Chỉ loại bỏ các dòng rỗng hoàn toàn 🔥
-            const validIndData = res.data.filter((row: any) => Object.values(row).some(v => v !== ""));
-            const sortedData = validIndData.sort((a: any, b: any) => {
-              const rateA = parseFloat((a.Average_Adherence || '0').toString().replace('%', ''));
-              const rateB = parseFloat((b.Average_Adherence || '0').toString().replace('%', ''));
-              return rateA - rateB;
-            });
-            setIndividualData(sortedData);
-          }
-        });
-      }
+      if (csvLog) Papa.parse(csvLog, { header: true, skipEmptyLines: true, complete: (res) => setLogs(res.data.filter((item: any) => Object.values(item).some(v => v !== "")).reverse()) });
+      if (csvSynthetic) Papa.parse(csvSynthetic, { header: true, skipEmptyLines: true, complete: (res) => setSyntheticData(res.data.filter((row: any) => Object.values(row).some(v => v !== ""))[0] || null) });
+      if (csvIndividual) Papa.parse(csvIndividual, { header: true, skipEmptyLines: true, complete: (res) => setIndividualData(res.data.filter((row: any) => Object.values(row).some(v => v !== ""))) });
+      if (csvRemind) Papa.parse(csvRemind, { header: true, skipEmptyLines: true, complete: (res) => setRemindData(res.data.filter((row: any) => Object.values(row).some(v => v !== ""))) });
+
     } catch (error) {
       console.error("Lỗi khi tải dữ liệu báo cáo:", error);
       setFetchError(true);
@@ -114,18 +90,18 @@ export default function ReportScreen() {
   useFocusEffect(useCallback(() => { fetchData(); }, []));
 
   if (loading) return (
-    <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
-      <ActivityIndicator size="large" color={colors.headerBgPastel} />
-      <Text style={styles.loadingText}>Đang tải dữ liệu báo cáo...</Text>
+    <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <Text style={styles.loadingText}>Hệ thống đang tổng hợp dữ liệu...</Text>
     </View>
   );
 
   if (fetchError) return (
-    <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+    <View style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: colors.bg }]}>
       <MaterialCommunityIcons name="wifi-off" size={60} color={colors.statusMissed} />
-      <Text style={[styles.loadingText, { color: colors.statusMissed, textAlign: 'center' }]}>Không thể tải dữ liệu. Vui lòng kiểm tra lại kết nối mạng.</Text>
-      <TouchableOpacity style={{ marginTop: 20, padding: 12, backgroundColor: colors.headerBgPastel, borderRadius: 8 }} onPress={fetchData}>
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Thử lại</Text>
+      <Text style={[styles.loadingText, { color: colors.statusMissed, textAlign: 'center' }]}>Mất kết nối máy chủ dữ liệu.</Text>
+      <TouchableOpacity style={styles.retryBtn} onPress={fetchData}>
+        <Text style={styles.retryBtnText}>Tải lại trang</Text>
       </TouchableOpacity>
     </View>
   );
@@ -134,67 +110,73 @@ export default function ReportScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {isMobile ? (
-          <View style={[styles.header, styles.headerMobile]}>
-             <View style={styles.headerTopRowMobile}>
-               <View style={styles.brandBoxMobile}>
-                  <View style={styles.brandRow}>
-                    <View style={styles.logoCircleMobile}><Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" /></View>
-                    <Text style={styles.brandMediMobile}>Medi<Text style={styles.brandHubMobile}>Hub</Text></Text>
-                  </View>
-               </View>
-               <View style={{flexDirection: 'row'}}>
-                 <TouchableOpacity style={styles.headerIconBtnMobile} onPress={() => router.push('/admin')}><MaterialCommunityIcons name="home-outline" size={22} color={colors.white} /></TouchableOpacity>
-                 <TouchableOpacity style={[styles.headerIconBtnMobile, {marginLeft: 10, backgroundColor: 'rgba(239, 68, 68, 0.2)'}]} onPress={handleLogout}><MaterialCommunityIcons name="power" size={22} color="#FECACA" /></TouchableOpacity>
-               </View>
-             </View>
-             <View style={styles.headerBottomRowMobile}><Text style={styles.pageTitleMobile}>BÁO CÁO THỐNG KÊ</Text></View>
-          </View>
-        ) : (
-          <View style={styles.header}>
-            <View style={styles.headerContent}>
-              <View style={styles.headerLeft}>
-                <View style={styles.brandBox}>
-                  <View style={styles.brandRow}>
-                    <View style={styles.logoCircle}><Image source={require('../assets/images/favicon.png')} style={{ width: 26, height: 26 }} resizeMode="contain" /></View>
-                    <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
-                  </View>
-                </View>
-                <Text style={styles.brandSlogan}>Đồng Hành Sức Khỏe Mỗi Ngày</Text>
+        {/* 🔥 HEADER CHUẨN SAAS (FLAT DESIGN) */}
+        <View style={styles.saasHeader}>
+          <View style={styles.headerLeft}>
+            {isMobile && (
+              <View style={styles.logoCircleMobile}>
+                <Image source={require('../assets/images/favicon.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
               </View>
-
-              <View style={styles.headerCenter}>
-                <Text style={styles.pageTitle}>BÁO CÁO THỐNG KÊ</Text>
-                <View style={styles.titleUnderline} />
-              </View>
-
-              <View style={styles.headerRight}>
-                <TouchableOpacity style={styles.navBtn} onPress={() => router.push('/admin')}>
-                  <MaterialCommunityIcons name="home-outline" size={20} color={colors.white} />
-                  <Text style={styles.navText}>Trang chủ</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconBtn} onPress={handleLogout}>
-                  <MaterialCommunityIcons name="power" size={20} color={colors.white} />
-                </TouchableOpacity>
-              </View>
+            )}
+            <View>
+              <Text style={styles.pageTitle}>Báo Cáo Thống Kê</Text>
+              <Text style={styles.pageSubtitle}>Phân tích dữ liệu tuân thủ điều trị</Text>
             </View>
           </View>
-        )}
-
-        <View style={styles.tabContainer}>
-          {['Synthetic', 'Log', 'Individual'].map((tab) => (
-            <TouchableOpacity key={tab} style={[styles.tabButton, activeTab === tab && styles.tabActive]} onPress={() => setActiveTab(tab)}>
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab === 'Log' ? 'Nhật ký' : (tab === 'Synthetic' ? 'Tổng quan' : 'Cá nhân')}</Text>
+          
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.refreshBtn} onPress={() => { setLoading(true); fetchData(); }}>
+              <MaterialCommunityIcons name="refresh" size={20} color={colors.textDark} />
+              {!isMobile && <Text style={styles.refreshBtnText}>Đồng bộ</Text>}
             </TouchableOpacity>
-          ))}
+            {!isDesktop && (
+              <TouchableOpacity style={[styles.refreshBtn, {backgroundColor: colors.dangerLight, borderColor: '#FECACA'}]} onPress={handleLogout}>
+                <MaterialCommunityIcons name="power" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        <View style={styles.mainArea}>
-          {activeTab === 'Synthetic' && <SyntheticTab syntheticData={syntheticData} individualData={individualData} isDesktop={isDesktop} chartWidth={chartWidth} />}
-          {activeTab === 'Log' && <LogTab logs={logs} isMobile={isMobile} isZoomed={isZoomed} setIsZoomed={setIsZoomed} />}
-          {activeTab === 'Individual' && <IndividualTab individualData={individualData} isMobile={isMobile} isZoomed={isZoomed} setIsZoomed={setIsZoomed} />}
-        </View>
+        <View style={styles.contentContainer}>
+          
+          {/* 🔥 TABS ĐIỀU HƯỚNG DẠNG SEGMENTED CONTROL (APPLE STYLE) */}
+          <View style={styles.toolbarContainer}>
+            <View style={styles.segmentedControl}>
+              {['Synthetic', 'Log', 'Individual'].map((tab) => {
+                const isActive = activeTab === tab;
+                const tabNames: any = { Synthetic: 'Tổng quan', Log: 'Nhật ký hệ thống', Individual: 'Phân tích cá nhân' };
+                const tabIcons: any = { Synthetic: 'chart-pie', Log: 'format-list-bulleted-type', Individual: 'account-details' };
+                
+                return (
+                  <TouchableOpacity 
+                    key={tab} 
+                    style={[styles.segmentBtn, isActive && styles.segmentBtnActive]} 
+                    onPress={() => setActiveTab(tab)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons 
+                      name={tabIcons[tab]} 
+                      size={18} 
+                      color={isActive ? colors.primary : colors.textMuted} 
+                      style={{marginRight: 6}}
+                    />
+                    <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+                      {tabNames[tab]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
+          {/* 🔥 KHU VỰC NỘI DUNG ÉP FULL MÀN HÌNH */}
+          <View style={styles.mainArea}>
+            {activeTab === 'Synthetic' && <SyntheticTab syntheticData={syntheticData} individualData={individualData} isDesktop={isDesktop} chartWidth={chartWidth} />}
+            {activeTab === 'Log' && <LogTab logs={logs} isMobile={isMobile} isZoomed={isZoomed} setIsZoomed={setIsZoomed} />}
+            {activeTab === 'Individual' && <IndividualTab logsData={logs} remindData={remindData} isMobile={isMobile} isZoomed={isZoomed} setIsZoomed={setIsZoomed} />}
+          </View>
+
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -202,41 +184,58 @@ export default function ReportScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bg },
-  container: { flex: 1, width: '100%' },
-  loadingText: { marginTop: 15, fontSize: 16, color: colors.textLight, fontWeight: '600' },
+  container: { flex: 1, width: '100%', flexDirection: 'column' },
   
-  header: { backgroundColor: colors.headerBgPastel, paddingVertical: 18, paddingHorizontal: '2%', borderBottomLeftRadius: 28, borderBottomRightRadius: 28, elevation: 8, shadowColor: colors.headerBgPastel, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, marginBottom: 5 },
-  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', position: 'relative' },
-  headerLeft: { flex: 1, alignItems: 'flex-start' },
-  brandBox: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', flexDirection: 'row', alignItems: 'center' },
-  brandRow: { flexDirection: 'row', alignItems: 'center' },
-  logoCircle: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
-  brandMedi: { fontSize: 30, fontWeight: '600', color: '#FFFFFF', marginLeft: 12, letterSpacing: 1, fontStyle: 'italic', textShadowColor: 'rgba(0, 0, 0, 0.35)', textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 4 },
-  brandHub: { fontWeight: '900', color: '#FFFFFF' },
-  brandSlogan: { fontSize: 12, fontWeight: '600', color: 'rgba(255, 255, 255, 0.8)', marginLeft: 12, marginTop: 6, textShadowColor: 'rgba(0, 0, 0, 0.2)', textShadowRadius: 2 },
-  headerCenter: { position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center', zIndex: -1 },
-  pageTitle: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2, textShadowColor: 'rgba(0, 0, 0, 0.2)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 2 },
-  titleUnderline: { width: 40, height: 3, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 2, marginTop: 4 },
-  headerRight: { flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
-  navBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', borderRadius: 20 },
-  navText: { marginLeft: 6, fontWeight: '700', color: '#FFFFFF', fontSize: 14 }, 
-  iconBtn: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', borderRadius: 20, marginLeft: 12, alignItems: 'center', justifyContent: 'center' },
-  
-  headerMobile: { paddingVertical: 20, paddingHorizontal: 15, marginBottom: 5 },
-  headerTopRowMobile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brandBoxMobile: { backgroundColor: 'rgba(255, 255, 255, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)' },
-  logoCircleMobile: { width: 30, height: 30, borderRadius: 8, backgroundColor: colors.white, justifyContent: 'center', alignItems: 'center' },
-  brandMediMobile: { fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginLeft: 10, fontStyle: 'italic' },
-  brandHubMobile: { fontWeight: '900' },
-  headerIconBtnMobile: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  headerBottomRowMobile: { marginTop: 15, alignItems: 'center' },
-  pageTitleMobile: { fontSize: 18, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2 },
+  loadingText: { marginTop: 15, fontSize: 15, color: colors.textMuted, fontWeight: '500' },
+  retryBtn: { marginTop: 20, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: colors.primary, borderRadius: 8, elevation: 2 },
+  retryBtnText: { color: colors.surface, fontWeight: '700', fontSize: 15 },
 
-  tabContainer: { width: '100%', flexDirection: 'row', backgroundColor: colors.white, paddingHorizontal: 10, paddingTop: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', elevation: 1 },
-  tabButton: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
-  tabActive: { borderBottomColor: '#A855F7' },
-  tabText: { fontSize: 15, fontWeight: '600', color: colors.textLight },
-  tabTextActive: { color: '#A855F7', fontWeight: '900' },
+  // 🔥 SAAS HEADER
+  saasHeader: { 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
+    backgroundColor: colors.surface, paddingVertical: 20, paddingHorizontal: 24, 
+    borderBottomWidth: 1, borderBottomColor: colors.border 
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  logoCircleMobile: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primaryLight, justifyContent: 'center', alignItems: 'center' },
+  pageTitle: { fontSize: 24, fontWeight: '800', color: colors.textDark, letterSpacing: -0.5 },
+  pageSubtitle: { fontSize: 13, color: colors.textMuted, marginTop: 4, fontWeight: '500' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   
-  mainArea: { flex: 1, paddingTop: 5, width: '100%' }, 
+  refreshBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  refreshBtnText: { color: colors.textDark, fontWeight: '600', fontSize: 14, marginLeft: 6 },
+
+  // Lõi nội dung
+  contentContainer: { flex: 1, padding: 24, width: '100%', maxWidth: 1600, alignSelf: 'center', flexDirection: 'column' },
+
+  // 🔥 SEGMENTED CONTROL TABS
+  toolbarContainer: { marginBottom: 20, alignItems: 'flex-start' },
+  segmentedControl: { 
+    flexDirection: 'row', 
+    backgroundColor: '#F1F5F9', // Nền xám bao quanh
+    borderRadius: 12, 
+    padding: 4, 
+    borderWidth: 1, 
+    borderColor: colors.border 
+  },
+  segmentBtn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 10, 
+    paddingHorizontal: 20, 
+    borderRadius: 8 
+  },
+  segmentBtnActive: { 
+    backgroundColor: colors.surface, // Pill màu trắng nổi lên
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 2, 
+    elevation: 2 
+  },
+  segmentText: { fontSize: 14, fontWeight: '600', color: colors.textMuted },
+  segmentTextActive: { color: colors.primary, fontWeight: '800' },
+
+  // Khu vực Render Component con
+  mainArea: { flex: 1, width: '100%', overflow: 'hidden' }, 
 });
