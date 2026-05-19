@@ -4,7 +4,6 @@ import { useEffect, useState, createContext, useContext } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Sidebar from '../components/Dashboard/Sidebar';
 
-// 1. TẠO BẢNG MÀU TOÀN CỤC
 export const ThemeContext = createContext({
   isDark: false,
   toggleTheme: () => {},
@@ -20,7 +19,6 @@ export default function Layout() {
   
   const [isDark, setIsDark] = useState(false);
 
-  // Load trạng thái Dark Mode từ bộ nhớ khi mở app
   useEffect(() => {
     AsyncStorage.getItem('appPrefs').then(prefs => {
       if (prefs) {
@@ -36,7 +34,6 @@ export default function Layout() {
     await AsyncStorage.setItem('appPrefs', JSON.stringify({ darkMode: newDark, notif: true }));
   };
 
-  // Định nghĩa màu dựa trên trạng thái isDark
   const theme = {
     bg: isDark ? '#0F172A' : '#F8FAFC',
     surface: isDark ? '#1E293B' : '#FFFFFF',
@@ -47,7 +44,8 @@ export default function Layout() {
     primaryLight: isDark ? '#134E4A' : '#F0FDFA',
   };
 
-  const noSidebarRoutes = ['/', '/index'];
+  // 🔥 ĐÃ CẬP NHẬT: Thêm cả trang lịch sử vào danh sách tàng hình Sidebar
+  const noSidebarRoutes = ['/', '/index', '/patient-home', '/patient-history'];
   const showSidebar = !noSidebarRoutes.includes(pathname) && isDesktop;
   const [isCollapsed, setIsCollapsed] = useState(false);
 

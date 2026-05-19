@@ -11,9 +11,19 @@ interface ProfileModalProps {
   patientName: string;
   onClose: () => void;
   onLogout: () => void;
+  onDeleteProfile: () => void; // <-- THÊM VÀO INTERFACE
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData, loadingProfile, patientId, patientName, onClose, onLogout }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ 
+  visible, 
+  profileData, 
+  loadingProfile, 
+  patientId, 
+  patientName, 
+  onClose, 
+  onLogout,
+  onDeleteProfile // <-- BÓC TÁCH PROP TỪ COMPONENT CHA
+}) => {
   return (
     <Modal visible={visible} transparent={true} animationType="slide">
       <View style={styles.profileModalOverlay}>
@@ -56,6 +66,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData
                 <MaterialCommunityIcons name="logout" size={22} color="#EF4444" />
                 <Text style={styles.logoutText}>Đăng xuất khỏi thiết bị</Text>
               </TouchableOpacity>
+
+              {/* NÚT XÓA HỒ SƠ BỆNH NHÂN (THÊM MỚI) */}
+              <TouchableOpacity style={styles.deleteBtn} onPress={onDeleteProfile}>
+                <MaterialCommunityIcons name="account-remove-outline" size={22} color="#DC2626" />
+                <Text style={styles.deleteText}>Xóa hoàn toàn hồ sơ</Text>
+              </TouchableOpacity>
             </ScrollView>
           )}
         </View>
@@ -64,7 +80,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ visible, profileData
   );
 };
 
-// Component con để hiển thị từng dòng thông tin cho đẹp
+// Component con để hiển thị từng dòng thông tin
 const InfoRow = ({ icon, label, value, isStatus = false, isLast = false }: any) => (
   <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
     <View style={styles.labelGroup}>
@@ -96,5 +112,9 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 16, color: colors.textLight, fontWeight: '500' },
   infoValue: { fontSize: 16, color: colors.textDark, fontWeight: '700', textAlign: 'right', flex: 1, marginLeft: 20 },
   logoutBtn: { flexDirection: 'row', paddingVertical: 18, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginTop: 25, backgroundColor: '#FFF1F2', borderWidth: 1, borderColor: '#FECACA' },
-  logoutText: { color: '#EF4444', fontSize: 16, fontWeight: 'bold', marginLeft: 8 }
+  logoutText: { color: '#EF4444', fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  
+  // CSS NÚT XÓA HỒ SƠ (THÊM MỚI)
+  deleteBtn: { flexDirection: 'row', paddingVertical: 18, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginTop: 12, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5', borderStyle: 'dashed' },
+  deleteText: { color: '#DC2626', fontSize: 16, fontWeight: 'bold', marginLeft: 8 }
 });

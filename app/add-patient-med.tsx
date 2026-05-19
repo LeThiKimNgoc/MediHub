@@ -19,6 +19,9 @@ export default function AddPatientMedScreen() {
   const [autoStartTime, setAutoStartTime] = useState('0800');
   const [manualTime, setManualTime] = useState('');
   const [autoFreq, setAutoFreq] = useState('');
+  
+  // 🔥 Thêm State quản lý Khung giờ chia tự động (Mặc định gợi ý sẵn 10h)
+  const [autoTimeFrame, setAutoTimeFrame] = useState('10');
 
   const [usageOptions, setUsageOptions] = useState<string[]>([]);
   const [medicineOptions, setMedicineOptions] = useState<any[]>([]); 
@@ -27,7 +30,25 @@ export default function AddPatientMedScreen() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [tempPrescription, setTempPrescription] = useState<any[]>([]);
 
-  const defaultForm = { sheetName: 'Log', PatientsID: params.id || '', MedicineName: '', ImageUrl: '', Time: [] as string[], Reminder_mode: 'Bật', Status: 'Chưa sử dụng', Quantity: '', DoseAmount: '', DoseUnit: 'giọt', Usage: '', Duration: '' };
+  // 🔥 MỞ RỘNG FORM: Thêm 3 trường cấu hình Cá thể hóa để đồng bộ trực tiếp lên Google Sheets
+  const defaultForm = { 
+    sheetName: 'Log', 
+    PatientsID: params.id || '', 
+    MedicineName: '', 
+    ImageUrl: '', 
+    Time: [] as string[], 
+    Reminder_mode: 'Bật', 
+    Status: 'Chưa sử dụng', 
+    Quantity: '', 
+    DoseAmount: '', 
+    DoseUnit: 'giọt', 
+    Usage: '', 
+    Duration: '',
+    SleepTime: '22:00', // Giờ ngủ mặc định chuẩn y khoa
+    WakeTime: '06:00',  // Giờ dậy mặc định chuẩn y khoa
+    Spacing: '2'        // Khoảng cách dãn liều bù mặc định (giờ)
+  };
+  
   const [formData, setFormData] = useState(defaultForm);
   const unitOptions = ['giọt', 'viên', 'lọ', 'ống', 'nhát xịt', 'ml', 'cm', 'miếng', 'cái'];
   const reminderOptions = ['Bật', 'Tắt'];
@@ -88,13 +109,38 @@ export default function AddPatientMedScreen() {
     }
   }, [formData.Quantity, formData.DoseAmount, formData.Time.length, formData.DoseUnit, formData.Usage]);
 
+  // 🔥 THUẬT TOÁN TỰ ĐỘNG CHIA GIỜ DỰA TRÊN KHUNG GIỜ TÙY CHỈNH (DYNAMIC TIME-FRAME)
   useEffect(() => {
     if (isEyeDrops) {
       const freq = parseInt(autoFreq);
-      if (freq > 0 && autoStartTime.length === 4) setFormData(prev => ({ ...prev, Time: autoDistributeTimes(autoStartTime, freq) }));
-      else if (!autoFreq) setFormData(prev => ({ ...prev, Time: [] }));
+      if (freq > 0 && autoStartTime.length === 4) {
+        const startH = parseInt(autoStartTime.substring(0, 2));
+        const startM = parseInt(autoStartTime.substring(2, 4));
+        
+        if (!isNaN(startH) && !isNaN(startM) && startH <= 23 && startM <= 59) {
+          const startTotalMins = startH * 60 + startM;
+          const frameHours = parseFloat(autoTimeFrame || '10'); // Đọc số khung giờ gõ thủ công
+          const frameMins = frameHours * 60;
+          let generatedTimes = [];
+
+          if (freq <= 1) {
+            generatedTimes.push(`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`);
+          } else {
+            const interval = frameMins / (freq - 1); // Công thức chia dãn cách khoảng thời gian
+            for (let i = 0; i < freq; i++) {
+              const currentMins = startTotalMins + Math.round(i * interval);
+              const h = Math.floor(currentMins / 60) % 24;
+              const m = currentMins % 60;
+              generatedTimes.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+            }
+          }
+          setFormData(prev => ({ ...prev, Time: generatedTimes }));
+        }
+      } else if (!autoFreq) {
+        setFormData(prev => ({ ...prev, Time: [] }));
+      }
     }
-  }, [autoStartTime, autoFreq, formData.DoseUnit]);
+  }, [autoStartTime, autoFreq, autoTimeFrame, formData.DoseUnit]); // Lắng nghe thêm biến autoTimeFrame
 
   const handleSelectMedicine = (med: any) => {
     let autoUnit = formData.DoseUnit; 
@@ -121,7 +167,7 @@ export default function AddPatientMedScreen() {
   const addToTempPrescription = () => {
     if (!formData.MedicineName || formData.Time.length === 0 || !formData.DoseAmount || !formData.Duration) return Alert.alert('Lỗi', 'Vui lòng điền đủ Tên thuốc, Giờ, Liều lượng và Số ngày dùng!');
     setTempPrescription([...tempPrescription, { ...formData }]);
-    setFormData(defaultForm); setAutoFreq(''); setShowDropdown(false); setManualTime('');
+    setFormData(defaultForm); setAutoFreq(''); setAutoTimeFrame('10'); setShowDropdown(false); setManualTime('');
     showToast('Đã thêm vào chỉ định!');
   };
 
@@ -136,17 +182,11 @@ export default function AddPatientMedScreen() {
     } catch (error: any) { showToast(error.message); } finally { setLoading(false); }
   };
 
-  // 🔥 HÀM XỬ LÝ QUAY VỀ THÔNG MINH 🔥
   const handleGoBack = () => {
     try {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/patient'); // Trả về trang bệnh nhân nếu bị mất lịch sử
-      }
-    } catch (error) {
-      router.replace('/patient');
-    }
+      if (router.canGoBack()) { router.back(); } 
+      else { router.replace('/patient'); }
+    } catch (error) { router.replace('/patient'); }
   };
 
   return (
@@ -154,11 +194,9 @@ export default function AddPatientMedScreen() {
       {toastMessage !== '' && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-circle" size={20} color={colors.white} /><Text style={styles.toastText}>{toastMessage}</Text></View>}
 
       <View style={styles.appHeader}>
-        {/* 🔥 GÁN HÀM QUAY VỀ THÔNG MINH VÀO NÚT NÀY 🔥 */}
         <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <MaterialCommunityIcons name="arrow-left" size={28} color={colors.headerText} />
         </TouchableOpacity>
-        
         <View style={styles.logoCircleHeader}><Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" /></View>
         <View><Text style={styles.headerTitle}>Chỉ Định Điều Trị</Text><Text style={styles.subTitle}>Mã BN: {params.name} ({params.id})</Text></View>
       </View>
@@ -194,12 +232,14 @@ export default function AddPatientMedScreen() {
                 {showDropdown && filteredMeds.length > 0 && (<View style={styles.autocompleteDropdown}><ScrollView style={{ maxHeight: 200 }}>{filteredMeds.map((m, idx) => (<TouchableOpacity key={idx} style={styles.autoCompleteItem} onPress={() => handleSelectMedicine(m)}><Text style={{fontSize: 14}}>{m.name}</Text></TouchableOpacity>))}</ScrollView></View>)}
               </View>
 
+              {/* 🔥 GIAO DIỆN KHỐI TỰ ĐỘNG CHIA GIỜ CÓ THÊM Ô NHẬP KHUNG THỦ CÔNG (3 CỘT) */}
               {isEyeDrops && (
-                <View style={styles.autoScheduleBox}>
-                  <Text style={styles.autoTitle}>⏰ Tự động chia (Khung 10h)</Text>
-                  <View style={{flexDirection: 'row', gap: 10}}>
+                <View style={[styles.autoScheduleBox, { backgroundColor: '#F0FDFA', borderColor: '#CCFBF1', borderWidth: 1 }]}>
+                  <Text style={[styles.autoTitle, { color: '#0F766E' }]}>⏰ Tự động chia giờ</Text>
+                  <View style={{flexDirection: 'row', gap: 10, marginTop: 4}}>
                     <View style={{flex: 1}}><Text style={styles.subLabel}>Bắt đầu (4 số)</Text><TextInput style={styles.miniInput} placeholder="0800" keyboardType="numeric" maxLength={4} value={autoStartTime} onChangeText={setAutoStartTime} /></View>
                     <View style={{flex: 1}}><Text style={styles.subLabel}>Số lần/ngày</Text><TextInput style={styles.miniInput} placeholder="6" keyboardType="numeric" value={autoFreq} onChangeText={setAutoFreq} /></View>
+                    <View style={{flex: 1}}><Text style={[styles.subLabel, {color: '#0F766E', fontWeight: 'bold'}]}>Khung (Giờ)</Text><TextInput style={[styles.miniInput, {borderColor: '#00A991', borderWidth: 1.5}]} placeholder="10" keyboardType="numeric" value={autoTimeFrame} onChangeText={setAutoTimeFrame} /></View>
                   </View>
                 </View>
               )}
@@ -238,6 +278,29 @@ export default function AddPatientMedScreen() {
                 <View style={{flex: 1}}><Text style={styles.label}>Số Ngày Dùng *</Text><TextInput style={[styles.input, formData.DoseUnit === 'viên' && {backgroundColor: '#F0FDFA'}]} keyboardType="numeric" value={formData.Duration} onChangeText={(t) => setFormData({...formData, Duration: t})} editable={formData.DoseUnit !== 'viên'} /></View>
                 <View style={{flex: 1}}><Text style={styles.label}>Nhắc Nhở</Text><View style={styles.chipsContainer}>{reminderOptions.map((o, i) => (<TouchableOpacity key={i} style={[styles.chip, formData.Reminder_mode === o && styles.chipSelected]} onPress={() => setFormData({...formData, Reminder_mode: o})}><Text style={[styles.chipText, formData.Reminder_mode === o && styles.chipTextSelected]}>{o}</Text></TouchableOpacity>))}</View></View>
               </View>
+
+              {/* 🔥 TÍNH NĂNG MỚI: CARD CẤU HÌNH CÁ THỂ HÓA (BẢO VỆ GIẤC NGỦ & DÃN LIỀU BÙ KHẨN CẤP) */}
+              <View style={{ backgroundColor: '#F1F5F9', padding: 14, borderRadius: 14, marginTop: 16, marginBottom: 4, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                  <MaterialCommunityIcons name="cog-outline" size={16} color="#475569" />
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#475569' }}>Cấu hình cá thể hóa (Dành cho liều bù)</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 4, fontWeight: '600' }}>Giờ ngủ người bệnh</Text>
+                    <TextInput style={[styles.input, { height: 38, padding: 8, fontSize: 13, backgroundColor: '#FFF' }]} placeholder="22:00" value={formData.SleepTime} onChangeText={(t) => setFormData({ ...formData, SleepTime: t })} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 4, fontWeight: '600' }}>Giờ dậy người bệnh</Text>
+                    <TextInput style={[styles.input, { height: 38, padding: 8, fontSize: 13, backgroundColor: '#FFF' }]} placeholder="06:00" value={formData.WakeTime} onChangeText={(t) => setFormData({ ...formData, WakeTime: t })} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, color: '#64748B', marginBottom: 4, fontWeight: '600' }}>Dãn cách bù (Giờ)</Text>
+                    <TextInput style={[styles.input, { height: 38, padding: 8, fontSize: 13, backgroundColor: '#FFF' }]} placeholder="2" keyboardType="numeric" value={formData.Spacing} onChangeText={(t) => setFormData({ ...formData, Spacing: t })} />
+                  </View>
+                </View>
+              </View>
+
             </ScrollView>
             <TouchableOpacity style={styles.addToTempBtn} onPress={addToTempPrescription}><Text style={styles.addToTempText}>THÊM VÀO DANH SÁCH CHỈ ĐỊNH</Text></TouchableOpacity>
           </View>
@@ -250,7 +313,9 @@ export default function AddPatientMedScreen() {
                   <View style={{flex: 1}}>
                     <Text style={{fontWeight: '800', fontSize: 14}}>{item.MedicineName}</Text>
                     <Text style={{fontSize: 12, color: colors.textLight}}>{item.DoseAmount} {item.DoseUnit} - {item.Usage} | {item.Duration} ngày</Text>
-                    <Text style={{fontSize: 12, color: colors.primary, fontWeight: '700'}}>⏰ {item.Time.join(', ')}</Text>
+                    <Text style={{fontSize: 12, color: colors.primary, fontWeight: '700', marginTop: 2}}>⏰ {item.Time.join(', ')}</Text>
+                    {/* Hiển thị thông số cấu hình nhỏ bên dưới phác đồ tạm tính để bác sĩ rà soát */}
+                    <Text style={{fontSize: 11, color: '#94A3B8', fontStyle: 'italic', marginTop: 2}}>Giờ ngủ: {item.SleepTime} - Giờ dậy: {item.WakeTime} | Dãn cách: {item.Spacing}h</Text>
                   </View>
                   <TouchableOpacity onPress={() => setTempPrescription(tempPrescription.filter((_, i) => i !== index))}><MaterialCommunityIcons name="delete-outline" size={22} color={colors.dangerText} /></TouchableOpacity>
                 </View>
@@ -260,6 +325,7 @@ export default function AddPatientMedScreen() {
               {loading ? <ActivityIndicator color="white" /> : <Text style={styles.submitText}>XÁC NHẬN BAN HÀNH ĐƠN THUỐC</Text>}
             </TouchableOpacity>
           </View>
+
         </View>
       </View>
     </SafeAreaView>

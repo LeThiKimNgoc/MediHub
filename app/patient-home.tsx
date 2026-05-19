@@ -1,367 +1,643 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView, Alert, Platform, RefreshControl, ScrollView, TouchableOpacity, Image, Modal } from 'react-native';
-import Papa from 'papaparse';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, router } from 'expo-router'; 
-import * as Notifications from 'expo-notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import Svg, { Circle } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import Papa from 'papaparse';
+import * as Notifications from 'expo-notifications'; 
+import * as Speech from 'expo-speech'; 
 
-import { colors } from '../constants/theme';
-import { DashboardHeader } from '../components/Dashboard/DashboardHeader';
-import { MedCardItem } from '../components/Dashboard/MedCardItem';
-import { getMedTerminology } from '../utils/helpers'; 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
-import { ConfirmDoseModal } from '../components/Modals/ConfirmDoseModal';
-import { ContactClinicModal } from '../components/Modals/ContactClinicModal';
-import { ProfileModal } from '../components/Modals/ProfileModal';
-import { HistoryModal } from '../components/Modals/HistoryModal';
-import { SymptomModal } from '../components/Modals/SymptomModal';
-
-const BRAND_TEAL = '#14B8A6'; 
-
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: true }),
-  });
-}
+const colors = { 
+  primary: '#00A991', 
+  primaryDark: '#008573', 
+  bg: '#F8FAFC', 
+  surface: '#FFFFFF', 
+  textDark: '#1E293B', 
+  textMuted: '#64748B', 
+  danger: '#EF4444', 
+  warning: '#F59E0B', 
+  border: '#F1F5F9', 
+  success: '#10B981' 
+};
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnWcNa-ajJKXZ4T3QjlrnEU5drwTO2PfQ-oDkUFRhAMzpcydzmPHkPQG6cFOVv0LXS/exec';
 
-// Biến toàn cục để đếm số lần gõ cho Developer Menu
-let secretTapCount = 0;
-let secretTapTimer: any = null;
+const CircularProgress = ({ size, strokeWidth, percentage, color }: any) => {
+  const radius = (size - strokeWidth) / 2; 
+  const circum = radius * 2 * Math.PI; 
+  const svgProgress = 100 - percentage;
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Svg width={size} height={size}>
+        <Circle stroke="rgba(255,255,255,0.2)" fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
+        <Circle stroke={color} fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} strokeDasharray={`${circum} ${circum}`} strokeDashoffset={radius * Math.PI * 2 * (svgProgress / 100)} strokeLinecap="round" transform={`rotate(-90, ${size / 2}, ${size / 2})`} />
+      </Svg>
+      <View style={{ position: 'absolute', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>{percentage}<Text style={{ fontSize: 10 }}>%</Text></Text></View>
+    </View>
+  );
+};
 
 export default function PatientHomeScreen() {
-  const params = useLocalSearchParams();
-  const patientId = params.id as string;
-  const patientName = params.name as string;
-
-  const [activeTab, setActiveTab] = useState<'home' | 'meds'>('home');
-  const [medications, setMedications] = useState<any[]>([]);
+  const [patientName, setPatientName] = useState('Người dùng');
+  const [patientId, setPatientId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  
-  const [isSymptomModalVisible, setSymptomModalVisible] = useState(false);
-  const [isLogModalVisible, setLogModalVisible] = useState(false);
-  const [isSosModalVisible, setSosModalVisible] = useState(false);
-  const [isHistoryModalVisible, setHistoryModalVisible] = useState(false);
-  const [isProfileModalVisible, setProfileModalVisible] = useState(false);
-  const [selectedMed, setSelectedMed] = useState<any>(null);
-  const [isLogging, setIsLogging] = useState(false);
-  const [toastVisible, setToastVisible] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
 
-  // STATE CHO MENU ẨN
-  const [isSystemStatsVisible, setSystemStatsVisible] = useState(false);
-  const [sysStats, setSysStats] = useState({ pending: 0, delivered: 0, permission: 'unknown' });
+  const [groupedMeds, setGroupedMeds] = useState<any>({});
+  const [orderedTimes, setOrderedTimes] = useState<string[]>([]);
+  const [medImages, setMedImages] = useState<any>({}); 
+
+  const [slotInfo, setSlotInfo] = useState({ slot: '--:--', type: 'none', missedCount: 0 }); 
+  const [activeFilter, setActiveFilter] = useState('Tất cả');
+  const [patientConfig, setPatientConfig] = useState({ sleep: '22:00', wake: '06:00' });
+
+  const [completedSlots, setCompletedSlots] = useState<string[]>([]);
+  const [skippedSlots, setSkippedSlots] = useState<string[]>([]);
+  const [progress, setProgress] = useState({ completed: 0, total: 0, percent: 0 });
+  const [speakingMedIndex, setSpeakingMedIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
-       const currentStr = await AsyncStorage.getItem('delivered_notifs') || '0';
-       await AsyncStorage.setItem('delivered_notifs', (parseInt(currentStr) + 1).toString());
-    });
-    return () => subscription.remove();
+    const configureNotifications = async () => {
+      if (Platform.OS === 'web') return;
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') return;
+
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('medihub-reminders', {
+          name: 'Lịch nhắc MediHub',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#00A991',
+          sound: 'default'
+        });
+      }
+    };
+    configureNotifications();
   }, []);
 
   useEffect(() => {
-    let timer: any;
-    if (cooldown > 0) {
-      timer = setInterval(() => setCooldown(prev => prev - 1), 1000);
-    }
-    return () => clearInterval(timer);
-  }, [cooldown]);
+    const initApp = async () => {
+      try {
+        const savedName = await AsyncStorage.getItem('patientName') || 'Người dùng';
+        const savedId = await AsyncStorage.getItem('patientId') || '';
+        setPatientName(savedName);
+        if (savedId) {
+          setPatientId(savedId);
+          const savedCompleted = await AsyncStorage.getItem(`completed_slots_${savedId}`);
+          const savedSkipped = await AsyncStorage.getItem(`skipped_slots_${savedId}`);
+          const initialCompleted = savedCompleted ? JSON.parse(savedCompleted) : [];
+          const initialSkipped = savedSkipped ? JSON.parse(savedSkipped) : [];
+          setCompletedSlots(initialCompleted); setSkippedSlots(initialSkipped);
+          await fetchAndProcessMeds(savedId, initialCompleted, initialSkipped);
+        } else { setLoading(false); }
+      } catch (error) { console.error(error); setLoading(false); }
+    };
+    initApp();
+  }, []);
 
-  const scheduleNotifications = async (medsList: any[]) => {
+  useEffect(() => {
+    return () => { Speech.stop(); };
+  }, [slotInfo.slot]);
+
+  useEffect(() => {
+    setActiveFilter('Tất cả');
+  }, [slotInfo.slot]);
+
+  const scheduleMedReminders = async (times: string[]) => {
     if (Platform.OS === 'web') return; 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      if (status !== 'granted') return;
-    }
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    const now = new Date();
-    let allTimes: string[] = [];
-    medsList.forEach(med => { if (med.timeArray) allTimes = [...allTimes, ...med.timeArray]; });
-    const uniqueTimes = Array.from(new Set(allTimes));
-    
-    uniqueTimes.forEach(async (timeStr: string) => {
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      const scheduleDate = new Date();
-      scheduleDate.setHours(hours, minutes, 0, 0);
-      if (scheduleDate.getTime() > now.getTime()) {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+      times.forEach(async (time) => {
+        const parts = time.split(':');
+        if (parts.length !== 2) return; 
+        const hour = parseInt(parts[0], 10);
+        const minute = parseInt(parts[1], 10);
+        if (isNaN(hour) || isNaN(minute)) return;
+
         await Notifications.scheduleNotificationAsync({
-          content: { title: "⏰ Tới giờ rồi!", body: "Đã đến giờ dùng thuốc theo lịch hẹn.", sound: true, priority: Notifications.AndroidNotificationPriority.MAX },
-          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: scheduleDate },
+          content: { 
+            title: "🔔 MediHub: Đến lịch trình của bạn!", 
+            body: `Đã đến giờ thực hiện lịch trình lúc ${time}.`, 
+            sound: true,
+            badge: 1,
+            android: { channelId: 'medihub-reminders' } 
+          },
+          trigger: { 
+            type: 'daily',
+            hour: hour, 
+            minute: minute, 
+            repeats: true 
+          } as any,
         });
+      });
+    } catch (error) { console.log(error); }
+  };
+
+  const getMedRouteDetails = (name: string, dosage: string) => {
+    const checkText = (name + " " + dosage).toLowerCase();
+    if (['tra mắt', 'mỡ', 'gel'].some(kw => checkText.includes(kw))) return { icon: 'eye-outline', label: 'Thuốc tra mắt', color: '#8B5CF6', bg: '#EDE9FE', isEyeDrop: true };
+    if (['nhỏ', 'giọt', 'sanlein', 'cravit', 'tobrex'].some(kw => checkText.includes(kw))) return { icon: 'eyedropper', label: 'Thuốc nhỏ mắt', color: '#0284C7', bg: '#E0F2FE', isEyeDrop: true };
+    if (['bôi', 'ngoài da', 'dán'].some(kw => checkText.includes(kw))) return { icon: 'hand-water', label: 'Dùng ngoài da', color: '#F59E0B', bg: '#FFFBEB', isEyeDrop: false };
+    if (['vitamin', 'canxi', 'omega', 'bổ', 'tpcn', 'kẽm', 'sắt'].some(kw => checkText.includes(kw))) return { icon: 'leaf', label: 'Thực phẩm chức năng', color: '#10B981', bg: '#ECFDF5', isEyeDrop: false };
+    if (['bông', 'băng', 'gạc', 'kim', 'bơm', 'cồn', 'nước muối', 'sinh lý', 'rửa'].some(kw => checkText.includes(kw))) return { icon: 'bandage', label: 'Vật tư y tế', color: '#64748B', bg: '#F1F5F9', isEyeDrop: false };
+    return { icon: 'pill', label: 'Thuốc uống', color: '#10B981', bg: '#ECFDF5', isEyeDrop: false };
+  };
+
+  const getSpecialTagDetails = (usageStr: string) => {
+    const u = String(usageStr || '').toLowerCase();
+    if (u.includes('phải')) return { text: 'MẮT PHẢI', bg: '#FFEDD5', color: '#EA580C', icon: 'arrow-right-bold' };
+    if (u.includes('trái')) return { text: 'MẮT TRÁI', bg: '#F3E8FF', color: '#9333EA', icon: 'arrow-left-bold' };
+    if (u.includes('2 mắt') || u.includes('hai mắt')) return { text: 'CẢ 2 MẮT', bg: '#E0F2FE', color: '#0369A1', icon: 'eye' };
+    if (u.includes('sau ăn')) return { text: 'SAU ĂN', bg: '#FEF9C3', color: '#854D0E', icon: 'silverware-fork-knife' };
+    if (u.includes('trước ăn')) return { text: 'TRƯỚC ĂN', bg: '#E0F2FE', color: '#0369A1', icon: 'clock-outline' };
+    return null;
+  };
+
+  const handleSpeakInstruction = async (medName: string, label: string, dose: string, usage: string, index: number) => {
+    try {
+      if (speakingMedIndex === index) {
+        await Speech.stop();
+        setSpeakingMedIndex(null);
+        return;
       }
-    });
+      await Speech.stop();
+      setSpeakingMedIndex(index);
+      const textToSpeak = `Thuốc sử dụng: ${medName}. Loại thuốc: ${label}. Liều lượng sử dụng: ${dose}. Cách dùng: ${usage || 'Sử dụng theo chỉ định của bác sĩ'}.`;
+      Speech.speak(textToSpeak, {
+        language: 'vi-VN',
+        pitch: 1.0,
+        rate: 0.85,
+        onComplete: () => setSpeakingMedIndex(null),
+        onError: () => setSpeakingMedIndex(null)
+      });
+    } catch (e) {
+      console.log("Lỗi:", e);
+      setSpeakingMedIndex(null);
+    }
   };
 
-  const fetchMedications = async (isRefreshing = false) => {
-    if (!isRefreshing) setLoading(true);
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=2073748495&t=${new Date().getTime()}`;
-    fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(async csvText => {
-        Papa.parse(csvText, {
-          header: true, skipEmptyLines: true,
-          complete: async (results) => {
-            let rawMeds = results.data.filter((item: any) => item.PatientsID === patientId);
-            let groupedMeds = rawMeds.map(med => {
-              const times = med.Time ? med.Time.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-              return { ...med, timeArray: times }; 
-            });
-            setMedications(groupedMeds); 
-            scheduleNotifications(groupedMeds); 
-            setLoading(false); setRefreshing(false);
+  const timeToMinutes = (timeStr: string) => { const [h, m] = timeStr.split(':').map(Number); return h * 60 + m; };
+
+  const calculateActiveSlot = (times: string[], completed: string[], skipped: string[]) => {
+    if (times.length === 0) return { slot: '--:--', type: 'none', missedCount: 0 };
+    const nowMins = new Date().getHours() * 60 + new Date().getMinutes();
+    const processed = [...completed, ...skipped];
+
+    const missedSlots = times.filter(t => !processed.includes(t) && timeToMinutes(t) < nowMins - 15);
+
+    for (let i = 0; i < times.length; i++) {
+      if (processed.includes(times[i])) continue;
+      const slotMins = timeToMinutes(times[i]);
+      const nextSlotMins = i < times.length - 1 ? timeToMinutes(times[i + 1]) : slotMins + 4 * 60;
+      const midPoint = slotMins + (nextSlotMins - slotMins) / 2;
+
+      if (nowMins >= slotMins - 15 && nowMins <= midPoint) {
+        return { slot: times[i], type: 'standard', missedCount: missedSlots.length };
+      }
+    }
+
+    const upcoming = times.find(t => !processed.includes(t) && timeToMinutes(t) > nowMins);
+    if (upcoming) return { slot: upcoming, type: 'upcoming', missedCount: missedSlots.length };
+
+    if (missedSlots.length > 0) {
+      return { slot: missedSlots[0], type: 'catchup', missedCount: missedSlots.length };
+    }
+
+    return { slot: '--:--', type: 'done', missedCount: 0 };
+  };
+
+  const fetchAndProcessMeds = async (pid: string, currentCompleted: string[], currentSkipped: string[]) => {
+    try {
+      const sheetId = '1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q';
+      const gidRemind = '2073748495';
+      const gidLog = '1373475002'; 
+      const t = new Date().getTime();
+
+      // 🔥 MÃ GID MEDICINE CỦA SẾP ĐÃ ĐƯỢC GẮN VÀO ĐÂY
+      const gidMedicine = '1532424446'; 
+      const csvMedicine = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidMedicine}&t=${t}`, { cache: 'no-store' }).then(res => res.text());
+      const medicineData = Papa.parse(csvMedicine, { header: true, skipEmptyLines: true }).data;
+      
+      const imageDict: any = {};
+      medicineData.forEach((item: any) => {
+        const medName = item['MedicineName'] || item['Tên thuốc'] || item['Name'] || '';
+        const imgUrl = item['ImageUrl'] || item['Image'] || item['Hình ảnh'] || '';
+        if (medName && imgUrl) imageDict[String(medName).trim()] = String(imgUrl).trim();
+      });
+      setMedImages(imageDict); 
+
+      const csvLog = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidLog}&t=${t}`, { cache: 'no-store' }).then(res => res.text());
+      const logsData = Papa.parse(csvLog, { header: true, skipEmptyLines: true }).data;
+
+      const today = new Date();
+      const todayStr1 = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+      const todayStr2 = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+      const todayStr3 = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+      const fetchedCompleted: string[] = [];
+      const fetchedSkipped: string[] = [];
+
+      logsData.forEach((log: any) => {
+        const logPid = log['PatientsID'] || log['PatientID'] || '';
+        if (String(logPid).trim().toUpperCase() !== pid.toUpperCase()) return;
+
+        const timestamp = log['Timestamp'] || log['Date'] || log['Thời gian'] || '';
+        const isToday = timestamp.includes(todayStr1) || timestamp.includes(todayStr2) || timestamp.includes(todayStr3) || timestamp === '';
+
+        if (isToday) {
+          const timeSlot = log['PlannedTime'] || log['Time'] || '';
+          if (timeSlot) {
+            if (log['Status'] === 'Đã sử dụng' && !fetchedCompleted.includes(timeSlot)) {
+              fetchedCompleted.push(timeSlot);
+            } else if (log['Status'] === 'Bỏ lỡ' && !fetchedSkipped.includes(timeSlot)) {
+              fetchedSkipped.push(timeSlot);
+            }
           }
-        });
-      }).catch(() => { setLoading(false); setRefreshing(false); });
-  };
-
-  const fetchHistoryLogs = async (background = false) => {
-    if (!background) setLoadingHistory(true);
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=1373475002&t=${new Date().getTime()}`;
-    fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(csvText => {
-        Papa.parse(csvText, {
-          header: true, skipEmptyLines: true,
-          complete: async (results) => {
-            let myLogs = results.data.filter((item: any) => item.PatientsID === patientId);
-            setHistoryLogs(myLogs); 
-            if (!background) setLoadingHistory(false);
-          }
-        });
-      }).catch(() => { if(!background) setLoadingHistory(false); });
-  };
-
-  const fetchProfile = () => {
-    setLoadingProfile(true);
-    const csvUrl = `https://docs.google.com/spreadsheets/d/1dSpbzYvA6OT3pIgxx3znBE28pbaPri0l8Bnnj791g8Q/export?format=csv&gid=0&t=${new Date().getTime()}`;
-    fetch(csvUrl, { cache: 'no-store' }).then(res => res.text()).then(csvText => {
-      Papa.parse(csvText, {
-        header: true, skipEmptyLines: true,
-        complete: (results) => {
-          const myProfile = results.data.find((p: any) => p.PatientID === patientId || p.ID === patientId);
-          setProfileData(myProfile || null);
-          setLoadingProfile(false);
         }
       });
-    }).catch(() => setLoadingProfile(false));
-  };
 
-  useFocusEffect(useCallback(() => { fetchMedications(); fetchHistoryLogs(true); fetchProfile(); }, [patientId]));
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchMedications(true); fetchHistoryLogs(true); fetchProfile(); }, [patientId]);
+      const finalCompleted = Array.from(new Set([...currentCompleted, ...fetchedCompleted]));
+      const finalSkipped = Array.from(new Set([...currentSkipped, ...fetchedSkipped]));
+      setCompletedSlots(finalCompleted);
+      setSkippedSlots(finalSkipped);
 
-  const dashboardStats = useMemo(() => {
-    const today = new Date();
-    const todayStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    const currentMinutes = today.getHours() * 60 + today.getMinutes();
-    const todayLogs = historyLogs.filter(log => log.Timestamp && log.Timestamp.includes(todayStr));
-    const latestStatusMap: Record<string, string> = {};
-    todayLogs.forEach(log => { latestStatusMap[`${log.MedicineName}-${log.PlannedTime}`] = log.Status; });
-    let totalDoses = 0, completedDoses = 0, allPendingDoses: any[] = [];
-    medications.forEach(med => {
-      if (med.timeArray) {
-        med.timeArray.forEach((time: string) => {
-          totalDoses++; 
-          const key = `${med.MedicineName}-${time}`, currentStatus = latestStatusMap[key]; 
-          if (currentStatus === 'Đã sử dụng' || currentStatus === 'Hoàn thành' || currentStatus === 'Bỏ qua') {
-              if (currentStatus !== 'Bỏ qua') completedDoses++; 
-          } else {
-              const [h, m] = time.split(':').map(Number);
-              const isExpired = currentMinutes > (h * 60 + m + 60);
-              if (!isExpired) allPendingDoses.push({ ...med, Time: time, doseMinutes: h * 60 + m }); 
-          }
+      const csvRemind = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gidRemind}&t=${t}`, { cache: 'no-store' }).then(res => res.text());
+      const remindData = Papa.parse(csvRemind, { header: true, skipEmptyLines: true }).data;
+
+      const myMeds = remindData.filter((r: any) => {
+        const rawId = r['PatientID'] || r['PatientsID'] || r['Mã BN'];
+        return rawId && String(rawId).trim().toUpperCase() === pid.toUpperCase() && String(r['Reminder_mode']).trim() === 'Bật';
+      });
+
+      if (myMeds.length > 0) {
+        setPatientConfig({
+          sleep: myMeds[0]['SleepTime'] ? String(myMeds[0]['SleepTime']).trim() : '22:00',
+          wake: myMeds[0]['WakeTime'] ? String(myMeds[0]['WakeTime']).trim() : '06:00'
         });
       }
-    });
-    allPendingDoses.sort((a, b) => a.doseMinutes - b.doseMinutes);
-    return { total: totalDoses, completed: completedDoses, progressPercent: totalDoses > 0 ? (completedDoses / totalDoses) * 100 : 0, nextDoses: allPendingDoses.length > 0 ? allPendingDoses.filter(m => m.Time === allPendingDoses[0].Time) : [], allPending: allPendingDoses };
-  }, [medications, historyLogs]);
 
-  const submitLog = async (newStatus: string) => {
-    setIsLogging(true);
-    const logPayload = { action: 'add', sheetName: 'Log', data: { PatientsID: patientId, MedicineName: selectedMed.MedicineName, PlannedTime: selectedMed.Time, Action: 'Bệnh nhân tự xác nhận', Status: newStatus } };
-    try {
-      const response = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(logPayload) });
-      if ((JSON.parse(await response.text())).status === 'success') {
-          if (newStatus === 'Đã sử dụng') {
-             const terms = getMedTerminology(selectedMed);
-             if ((terms.action === 'nhỏ' || terms.action === 'tra') && dashboardStats.allPending.length > 1) setCooldown(600); 
-          }
-          setLogModalVisible(false); setToastVisible(true); fetchHistoryLogs(true); setTimeout(() => setToastVisible(false), 2500);
-      }
-    } catch (error) { Alert.alert('Lỗi', 'Không thể kết nối.'); } finally { setIsLogging(false); }
+      const groups: any = {};
+      myMeds.forEach((med: any) => {
+        const timeArray = String(med['Time'] || '08:00').split(',').map(t => t.trim()).filter(t => t !== '');
+        timeArray.forEach(time => { if (!groups[time]) groups[time] = []; groups[time].push(med); });
+      });
+
+      const uniqueTimes = Object.keys(groups).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+      setGroupedMeds(groups); setOrderedTimes(uniqueTimes);
+      scheduleMedReminders(uniqueTimes);
+
+      const info = calculateActiveSlot(uniqueTimes, finalCompleted, finalSkipped);
+      setSlotInfo(info);
+
+      const tot = uniqueTimes.length;
+      const comp = finalCompleted.filter(t => uniqueTimes.includes(t)).length;
+      setProgress({ completed: comp, total: tot, percent: tot > 0 ? Math.round((comp / tot) * 100) : 0 });
+    } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn thoát?', [{ text: 'Hủy', style: 'cancel' }, { text: 'Thoát', style: 'destructive', onPress: () => { AsyncStorage.removeItem('patientId'); router.replace('/'); }}]);
-  };
+  const isTooEarly = slotInfo.type === 'upcoming';
+  const isCurrentSlotProcessed = completedSlots.includes(slotInfo.slot) || skippedSlots.includes(slotInfo.slot);
+  const isActionDisabled = isCurrentSlotProcessed || isTooEarly;
 
-  // 🔥 HÀM XỬ LÝ GÕ 5 LẦN ĐỂ MỞ MENU ẨN 🔥
-  const loadSystemStats = async () => {
-    try {
-      const deliveredStr = await AsyncStorage.getItem('delivered_notifs') || '0';
-      let pending = 0;
-      let perm = 'web-simulated';
-
-      if (Platform.OS !== 'web') {
-        const { status } = await Notifications.getPermissionsAsync();
-        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-        perm = status;
-        pending = scheduled.length;
-      }
-
-      setSysStats({ pending, delivered: parseInt(deliveredStr), permission: perm });
-      setSystemStatsVisible(true);
-    } catch (e) {
-      console.log('Error loading stats', e);
-    }
-  };
-
-  const handleSecretTap = () => {
-    secretTapCount += 1;
-    if (secretTapTimer) clearTimeout(secretTapTimer);
+  const handleConfirmDose = async () => {
+    if (slotInfo.slot === '--:--' || isActionDisabled) return;
+    setLoading(true);
+    const newCompleted = [...completedSlots, slotInfo.slot];
+    setCompletedSlots(newCompleted);
+    await AsyncStorage.setItem(`completed_slots_${patientId}`, JSON.stringify(newCompleted));
     
-    // Nếu gõ đủ 5 lần trong thời gian ngắn thì kích hoạt
-    if (secretTapCount >= 5) {
-      secretTapCount = 0;
-      loadSystemStats();
-    } else {
-      // Nếu ngưng gõ quá 1 giây thì reset đếm lại từ đầu
-      secretTapTimer = setTimeout(() => {
-        secretTapCount = 0;
-      }, 1000);
+    try {
+      const promises = currentItems.map((med: any) => {
+        const logPayload = {
+          action: 'add',
+          sheetName: 'Log',
+          data: {
+            PatientsID: patientId,
+            MedicineName: med['MedicineName'],
+            PlannedTime: slotInfo.slot,
+            Action: 'Bệnh nhân xác nhận trên App',
+            Status: 'Đã sử dụng'
+          }
+        };
+        return fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(logPayload)
+        });
+      });
+      await Promise.all(promises);
+    } catch (e) { console.error(e); }
+    
+    await fetchAndProcessMeds(patientId, newCompleted, skippedSlots);
+  };
+
+  const handleSnoozeDose = () => {
+    if (isActionDisabled) return;
+    Platform.OS === 'web' ? window.alert(`Đã bật nhắc lại sau 10 phút.`) : Alert.alert('Nhắc nhở', 'Đã bật nhắc lại sau 10 phút.');
+  };
+
+  const handleSkipDose = async () => {
+    if (slotInfo.slot === '--:--' || isActionDisabled) return;
+    setLoading(true);
+    const newSkipped = [...skippedSlots, slotInfo.slot];
+    setSkippedSlots(newSkipped);
+    await AsyncStorage.setItem(`skipped_slots_${patientId}`, JSON.stringify(newSkipped));
+    
+    try {
+      const promises = currentItems.map((med: any) => {
+        const logPayload = {
+          action: 'add',
+          sheetName: 'Log',
+          data: {
+            PatientsID: patientId,
+            MedicineName: med['MedicineName'],
+            PlannedTime: slotInfo.slot,
+            Action: 'Bệnh nhân bỏ qua trên App',
+            Status: 'Bỏ lỡ'
+          }
+        };
+        return fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(logPayload)
+        });
+      });
+      await Promise.all(promises);
+    } catch (e) { console.error(e); }
+
+    await fetchAndProcessMeds(patientId, completedSlots, newSkipped);
+  };
+
+  const currentItems = groupedMeds[slotInfo.slot] || [];
+  const hasEyeDrops = currentItems.some((med: any) => getMedRouteDetails(med['MedicineName'], med['Dose'] || med['Dosage'] || '').isEyeDrop);
+  const availableFilters = ['Tất cả', ...Array.from(new Set(currentItems.map((m: any) => m['MedicineName'])))];
+  
+  const filteredItems = currentItems.filter((med: any) => {
+    if (activeFilter === 'Tất cả') return true;
+    return med['MedicineName'] === activeFilter;
+  });
+
+  const getSafeNextTimeMsg = () => {
+    let spacingHours = 2; 
+    const eyeDropsInSlot = currentItems.filter((med: any) => getMedRouteDetails(med['MedicineName'], med['Dose'] || med['Dosage'] || '').isEyeDrop);
+    if (eyeDropsInSlot.length > 0 && eyeDropsInSlot[0]['Spacing']) {
+      const parsedSpacing = parseFloat(eyeDropsInSlot[0]['Spacing']);
+      if (!isNaN(parsedSpacing)) spacingHours = parsedSpacing;
     }
+
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + spacingHours * 60);
+    const nextTotalMins = now.getHours() * 60 + now.getMinutes();
+
+    const [sleepH, sleepM] = patientConfig.sleep.split(':').map(Number);
+    const [wakeH, wakeM] = patientConfig.wake.split(':').map(Number);
+    const sleepTotalMins = sleepH * 60 + sleepM;
+    const wakeTotalMins = wakeH * 60 + wakeM;
+
+    let isSleeping = false;
+    if (sleepTotalMins > wakeTotalMins) {
+      if (nextTotalMins >= sleepTotalMins || nextTotalMins < wakeTotalMins) isSleeping = true;
+    } else {
+      if (nextTotalMins >= sleepTotalMins && nextTotalMins < wakeTotalMins) isSleeping = true;
+    }
+
+    if (isSleeping) {
+      return `Các cử lỡ còn lại vui lòng BỎ QUA để đảm bảo giấc ngủ an toàn (Từ ${patientConfig.sleep} đến ${patientConfig.wake}).`;
+    }
+
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return `Cử lỡ tiếp theo được dời sang ${timeStr} (Cách nhau ${spacingHours} giờ) để tránh ngộ độc nhãn áp.`;
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      
-      {/* 🔥 GLOBAL HEADER 🔥 */}
-      <View style={styles.globalHeader}>
-        {/* ĐỔI TỪ LONG PRESS SANG ON PRESS ĐỂ BẮT SỰ KIỆN GÕ NHANH 5 LẦN */}
-        <TouchableOpacity activeOpacity={0.7} onPress={handleSecretTap} style={styles.brandRow}>
-           <View style={styles.logoCircle}>
-              <Image source={require('../assets/images/favicon.png')} style={{ width: 22, height: 22 }} resizeMode="contain" />
-           </View>
-           <Text style={styles.brandMedi}>Medi<Text style={styles.brandHub}>Hub</Text></Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.headerIconBtn} onPress={() => setSosModalVisible(true)}>
-           <MaterialCommunityIcons name="phone-plus" size={22} color="white" />
-        </TouchableOpacity>
-      </View>
+      <View style={styles.mainContainer}>
+        
+        <View style={styles.header}>
+          <View style={styles.headerText}>
+            <Text style={styles.greetingText}>Chào buổi tối,</Text>
+            <Text style={styles.nameText}>{patientName} 👋</Text>
+          </View>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.notiBtn}><MaterialCommunityIcons name="bell-outline" size={20} color={colors.textDark} /><View style={styles.notiBadge}><Text style={styles.notiBadgeText}>3</Text></View></TouchableOpacity>
+            <View style={styles.avatar}><Text style={styles.avatarText}>{patientName.charAt(0).toUpperCase()}</Text></View>
+          </View>
+        </View>
 
-      <View style={{ flex: 1 }}>
-        {loading ? ( <View style={styles.centerContainer}><ActivityIndicator size="large" color={BRAND_TEAL} /></View> ) : (
-          <>
-            {activeTab === 'home' && (
-              <ScrollView contentContainerStyle={{ paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-                <DashboardHeader patientName={patientName} dashboardStats={dashboardStats} cooldown={cooldown} loading={loading} onOpenProfile={() => setProfileModalVisible(true)} onOpenLogModal={(med) => { setSelectedMed(med); setLogModalVisible(true); }} onOpenHistory={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }} onRefresh={onRefresh} onSOS={() => setSosModalVisible(true)} onLogout={handleLogout} onOpenSymptoms={() => setSymptomModalVisible(true)} />
-                <View style={styles.quickActionsRow}>
-                   <TouchableOpacity style={[styles.qBtn, {backgroundColor: '#FEE2E2'}]} onPress={() => setSymptomModalVisible(true)}><MaterialCommunityIcons name="heart-pulse" size={32} color="#EF4444" /><Text style={styles.qText}>Báo Triệu Chứng</Text></TouchableOpacity>
-                   <TouchableOpacity style={[styles.qBtn, {backgroundColor: '#E0E7FF'}]} onPress={() => setSosModalVisible(true)}><MaterialCommunityIcons name="doctor" size={32} color="#4F46E5" /><Text style={styles.qText}>Gọi Bác Sĩ</Text></TouchableOpacity>
-                </View>
-              </ScrollView>
-            )}
-            {activeTab === 'meds' && (
-              <View style={{ flex: 1 }}>
-                <View style={styles.tabHeader}><Text style={styles.tabHeaderTitle}>Tủ Thuốc Của Tôi</Text></View>
-                <FlatList data={medications} keyExtractor={(item, index) => index.toString()} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 15, paddingBottom: 50 }} renderItem={({ item }) => <MedCardItem item={item} historyLogs={historyLogs} onPressTime={(med, time) => { setSelectedMed({...med, Time: time}); setLogModalVisible(true); }} />} />
+        <View style={styles.progressCard}>
+          <View style={styles.progressContent}>
+            <View>
+              <Text style={styles.progressTitle}>TIẾN ĐỘ HÔM NAY</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 2 }}>
+                <Text style={styles.progressBigNumber}>{progress.completed}</Text>
+                <Text style={styles.progressSmallNumber}>/{progress.total}</Text>
               </View>
-            )}
-          </>
-        )}
+              <Text style={styles.progressSubtitle}>lịch trình hoàn thành</Text>
+            </View>
+            <CircularProgress size={60} strokeWidth={6} percentage={progress.percent} color="#FFFFFF" />
+          </View>
+        </View>
+
+        <View style={styles.upcomingSection}>
+          
+          {loading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} /> : orderedTimes.length === 0 ? (
+            <View style={[styles.medCard, { alignItems: 'center', paddingVertical: 20 }]}><Text style={{ color: colors.textMuted, fontWeight: '600' }}>Không có lịch trình nào.</Text></View>
+          ) : slotInfo.type === 'done' ? (
+            <View style={[styles.medCard, { alignItems: 'center', paddingVertical: 40, justifyContent: 'center' }]}>
+              <MaterialCommunityIcons name="check-decagram" size={60} color={colors.success} />
+              <Text style={{ color: colors.textDark, fontWeight: '800', fontSize: 18, marginTop: 16 }}>Tuyệt vời!</Text>
+              <Text style={{ color: colors.textMuted, marginTop: 6 }}>Bạn đã hoàn thành phác đồ hôm nay.</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.sectionTitle}>
+                {slotInfo.type === 'catchup' ? 'Lịch trình bị nhỡ lúc: ' : 'Lịch trình lúc: '}
+                <Text style={{color: slotInfo.type === 'catchup' ? colors.danger : colors.primary}}>{slotInfo.slot}</Text>
+              </Text>
+              
+              {slotInfo.type === 'catchup' && slotInfo.missedCount >= 2 && hasEyeDrops ? (
+                <View style={styles.smartWarningBox}>
+                  <MaterialCommunityIcons name="shield-alert" size={24} color="#C2410C" />
+                  <View style={{flex: 1}}>
+                    <Text style={styles.smartWarningTitle}>Cảnh báo dãn liều an toàn</Text>
+                    <Text style={styles.smartWarningText}>
+                      Phát hiện <Text style={{fontWeight: 'bold'}}>{slotInfo.missedCount} lần</Text> lỡ thuốc nhỏ mắt. Vui lòng thực hiện 1 lần ngay bây giờ. <Text style={{fontWeight: 'bold'}}>{getSafeNextTimeMsg()}</Text>
+                    </Text>
+                  </View>
+                </View>
+              ) : slotInfo.type === 'catchup' ? (
+                <Text style={{fontSize: 12, color: colors.danger, marginBottom: 8, fontWeight: '600'}}>⚠️ Hãy thực hiện bổ sung nếu Bác sĩ cho phép.</Text>
+              ) : slotInfo.type === 'upcoming' ? (
+                <View>
+                  <Text style={{fontSize: 12, color: colors.warning, marginBottom: 4, fontWeight: '600'}}>⏳ Chưa đến giờ. Các nút xác nhận đã được khóa.</Text>
+                  {slotInfo.missedCount > 0 && (
+                    <Text style={{fontSize: 11, color: colors.danger, marginBottom: 8, fontStyle: 'italic'}}>
+                      * Bạn có {slotInfo.missedCount} lịch trình lỡ trước đó. Hệ thống đã dời xuống cuối ngày để tránh chồng chéo liều.
+                    </Text>
+                  )}
+                </View>
+              ) : null}
+
+              <View style={styles.medCard}>
+                
+                {availableFilters.length > 2 && ( 
+                  <View style={styles.filterWrapper}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+                      {(availableFilters as string[]).map(itemName => (
+                        <TouchableOpacity 
+                          key={itemName} 
+                          style={[styles.filterChip, activeFilter === itemName && styles.filterChipActive]}
+                          onPress={() => setActiveFilter(itemName)}
+                        >
+                          <Text style={[styles.filterChipText, activeFilter === itemName && styles.filterChipTextActive]}>{itemName}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                <ScrollView style={styles.medListContainer} showsVerticalScrollIndicator={false}>
+                  {filteredItems.length === 0 ? (
+                    <Text style={{ textAlign: 'center', color: colors.textMuted, marginTop: 10, fontSize: 12 }}>Trống.</Text>
+                  ) : (
+                    filteredItems.map((med: any, i: number) => {
+                      const currentDose = med['Dose'] || med['Dosage'] || '';
+                      const route = getMedRouteDetails(med['MedicineName'], currentDose);
+                      const imageUrl = medImages[String(med['MedicineName']).trim()];
+                      const specialTag = getSpecialTagDetails(med['Usage']);
+                      const isThisMedSpeaking = speakingMedIndex === i;
+
+                      return (
+                        <View key={i} style={[styles.medItemRow, i > 0 && { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12, marginTop: 12 }]}>
+                          
+                          <View style={styles.medImageBox}>
+                            {imageUrl ? (
+                              <Image source={{ uri: imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                            ) : (
+                              <>
+                                <MaterialCommunityIcons name="image-outline" size={24} color="#94A3B8" />
+                                <Text style={styles.medImagePlaceholderText}>Chưa có ảnh</Text>
+                              </>
+                            )}
+                          </View>
+
+                          <View style={styles.medInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                              <Text style={styles.medName} numberOfLines={1}>{med['MedicineName']}</Text>
+                              <TouchableOpacity 
+                                style={[styles.voiceBtn, isThisMedSpeaking && styles.voiceBtnActive]} 
+                                onPress={() => handleSpeakInstruction(med['MedicineName'], route.label, currentDose, med['Usage'], i)}
+                              >
+                                <MaterialCommunityIcons 
+                                  name={isThisMedSpeaking ? "volume-high" : "volume-variant-off"} 
+                                  size={16} 
+                                  color={isThisMedSpeaking ? "#FFF" : colors.primary} 
+                                />
+                              </TouchableOpacity>
+                            </View>
+                            
+                            <View style={styles.singleUsageRow}>
+                              <MaterialCommunityIcons name={route.icon as any} size={14} color={route.color} style={{ marginRight: 4 }} />
+                              <Text style={styles.singleUsageText}>
+                                {route.label} <Text style={{ color: '#94A3B8' }}>•</Text> Liều dùng: {currentDose} {med['Usage'] ? `(${med['Usage']})` : ''}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {specialTag && (
+                            <View style={[styles.specialIndicatorBadge, { backgroundColor: specialTag.bg }]}>
+                              <MaterialCommunityIcons name={specialTag.icon as any} size={12} color={specialTag.color} />
+                              <Text style={[styles.specialIndicatorText, { color: specialTag.color }]}>{specialTag.text}</Text>
+                            </View>
+                          )}
+
+                        </View>
+                      );
+                    })
+                  )}
+                </ScrollView>
+
+                <View style={styles.actionButtonGroup}>
+                  <TouchableOpacity style={[styles.btnItem, { backgroundColor: colors.success }, isActionDisabled && styles.btnDisabled]} disabled={isActionDisabled} onPress={handleConfirmDose}>
+                    <MaterialCommunityIcons name="check-circle" size={14} color="#FFF" /><Text style={styles.btnText}>Hoàn thành</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={[styles.btnItem, { backgroundColor: colors.warning }, isActionDisabled && styles.btnDisabled]} disabled={isActionDisabled} onPress={handleSnoozeDose}>
+                    <MaterialCommunityIcons name="clock-alert-outline" size={14} color="#FFF" /><Text style={styles.btnText}>Nhắc sau 10 phút</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={[styles.btnItem, { backgroundColor: colors.danger }, isActionDisabled && styles.btnDisabled]} disabled={isActionDisabled} onPress={handleSkipDose}>
+                    <MaterialCommunityIcons name="close-circle" size={14} color="#FFF" /><Text style={styles.btnText}>Bỏ qua</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </>
+          )}
+        </View>
       </View>
 
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('home')}><MaterialCommunityIcons name={activeTab === 'home' ? "home-variant" : "home-variant-outline"} size={28} color={activeTab === 'home' ? BRAND_TEAL : '#94A3B8'} /><Text style={[styles.navLabel, activeTab === 'home' && {color: BRAND_TEAL}]}>Trang chủ</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => { setHistoryModalVisible(true); fetchHistoryLogs(); }}><MaterialCommunityIcons name="chart-arc" size={28} color="#94A3B8" /><Text style={styles.navLabel}>Lịch sử</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => setActiveTab('meds')}><MaterialCommunityIcons name={activeTab === 'meds' ? "medical-bag" : "bag-personal-outline"} size={28} color={activeTab === 'meds' ? BRAND_TEAL : '#94A3B8'} /><Text style={[styles.navLabel, activeTab === 'meds' && {color: BRAND_TEAL}]}>Tủ thuốc</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => setProfileModalVisible(true)}><MaterialCommunityIcons name="account-cog-outline" size={28} color="#94A3B8" /><Text style={styles.navLabel}>Cài đặt</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}><MaterialCommunityIcons name="home" size={26} color={colors.primary} /><Text style={[styles.navText, { color: colors.primary }]}>Trang chủ</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push({ pathname: '/patient-history', params: { id: patientId, name: patientName } })}><MaterialCommunityIcons name="history" size={26} color={colors.textMuted} /><Text style={styles.navText}>Lịch sử</Text></TouchableOpacity>
+        <View style={styles.navItemCenterWrapper}><TouchableOpacity style={styles.navItemCenter}><MaterialCommunityIcons name="plus" size={30} color="#FFF" /></TouchableOpacity></View>
+        <TouchableOpacity style={styles.navItem}><MaterialCommunityIcons name="medical-bag" size={26} color={colors.textMuted} /><Text style={styles.navText}>Tủ y tế</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}><MaterialCommunityIcons name="cog-outline" size={26} color={colors.textMuted} /><Text style={styles.navText}>Cài đặt</Text></TouchableOpacity>
       </View>
-
-      {/* 🔥 MODAL ẨN DÀNH CHO HỘI ĐỒNG ĐÁNH GIÁ 🔥 */}
-      <Modal visible={isSystemStatsVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.statsModalContent}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                 <MaterialCommunityIcons name="console" size={24} color={BRAND_TEAL} />
-                 <Text style={{fontSize: 18, fontWeight: 'bold', color: BRAND_TEAL, marginLeft: 8}}>System Diagnostics</Text>
-              </View>
-              <TouchableOpacity onPress={() => setSystemStatsVisible(false)} style={{padding: 5}}>
-                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Quyền Push Notification:</Text>
-              <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                 <MaterialCommunityIcons name={sysStats.permission === 'granted' || sysStats.permission === 'web-simulated' ? "shield-check" : "shield-alert"} size={16} color={sysStats.permission === 'granted' || sysStats.permission === 'web-simulated' ? '#10B981' : '#EF4444'} />
-                 <Text style={[styles.statValue, {color: sysStats.permission === 'granted' || sysStats.permission === 'web-simulated' ? '#10B981' : '#EF4444', marginLeft: 4}]}>
-                   {sysStats.permission === 'web-simulated' ? 'Giả lập (Web)' : (sysStats.permission === 'granted' ? 'Đã cấp (Granted)' : 'Từ chối (Denied)')}
-                 </Text>
-              </View>
-            </View>
-
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Hàng đợi gửi (Pending):</Text>
-              <Text style={styles.statValue}>{sysStats.pending} <Text style={{fontSize: 12, fontWeight: 'normal'}}>tiến trình</Text></Text>
-            </View>
-
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Tổng đã phát (Delivered):</Text>
-              <Text style={styles.statValue}>{sysStats.delivered} <Text style={{fontSize: 12, fontWeight: 'normal'}}>thông báo</Text></Text>
-            </View>
-
-            <View style={{marginTop: 20, padding: 12, backgroundColor: '#F0FDFA', borderRadius: 10, borderWidth: 1, borderColor: '#CCFBF1'}}>
-               <Text style={{fontSize: 12, color: '#0F766E', fontStyle: 'italic', textAlign: 'center', lineHeight: 18}}>
-                 * Dữ liệu được truy xuất trực tiếp từ bộ nhớ RAM (Pending) và Local Storage (Delivered) của thiết bị. Phục vụ mục đích kiểm chứng hệ thống.
-               </Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <ConfirmDoseModal visible={isLogModalVisible} med={selectedMed} isLogging={isLogging} onSubmit={submitLog} onClose={() => setLogModalVisible(false)} />
-      <ContactClinicModal visible={isSosModalVisible} onClose={() => setSosModalVisible(false)} />
-      <ProfileModal visible={isProfileModalVisible} profileData={profileData} loadingProfile={loadingProfile} patientId={patientId} patientName={patientName} onClose={() => setProfileModalVisible(false)} onLogout={handleLogout} />
-      <HistoryModal visible={isHistoryModalVisible} historyLogs={historyLogs} medications={medications} loadingHistory={loadingHistory} onClose={() => setHistoryModalVisible(false)} />
-      <SymptomModal visible={isSymptomModalVisible} isLogging={isLogging} onSubmit={(s) => setSymptomModalVisible(false)} onClose={() => setSymptomModalVisible(false)} />
-      {toastVisible && <View style={styles.toastContainer}><MaterialCommunityIcons name="check-decagram" size={28} color="white" /><Text style={styles.toastText}>Ghi nhận thành công!</Text></View>}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7F9' },
-  globalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: BRAND_TEAL, zIndex: 100 },
-  brandRow: { flexDirection: 'row', alignItems: 'center' },
-  logoCircle: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
-  brandMedi: { fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginLeft: 10, fontStyle: 'italic', letterSpacing: 1, textShadowColor: 'rgba(0, 0, 0, 0.2)', textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 4 },
-  brandHub: { fontWeight: '900', color: '#FFFFFF' },
-  headerIconBtn: { width: 40, height: 40, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  toastContainer: { position: 'absolute', top: '10%', alignSelf: 'center', backgroundColor: '#10B981', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25, flexDirection: 'row', alignItems: 'center', zIndex: 1000, elevation: 10 },
-  toastText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
-  quickActionsRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 15, marginTop: 10 },
-  qBtn: { flex: 1, padding: 20, borderRadius: 24, alignItems: 'center', elevation: 2 },
-  qText: { fontSize: 14, fontWeight: 'bold', color: '#1E293B', marginTop: 8 },
-  tabHeader: { paddingVertical: 20, backgroundColor: 'white', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  tabHeaderTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
-  bottomNav: { flexDirection: 'row', backgroundColor: 'white', paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9', justifyContent: 'space-around', paddingBottom: Platform.OS === 'ios' ? 30 : 12 },
-  navItem: { alignItems: 'center', flex: 1 },
-  navLabel: { fontSize: 11, fontWeight: 'bold', color: '#94A3B8', marginTop: 4 },
-
-  // CSS BẢNG THỐNG KÊ ẨN
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center' },
-  statsModalContent: { backgroundColor: 'white', width: '85%', borderRadius: 20, padding: 24, elevation: 10, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.2, shadowRadius: 20 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  statLabel: { fontSize: 14, color: '#475569', fontWeight: '600' },
-  statValue: { fontSize: 16, fontWeight: '900', color: '#1E293B' }
+  safeArea: { flex: 1, backgroundColor: colors.bg },
+  mainContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: Platform.OS === 'ios' ? 80 : 60 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  headerText: { flex: 1 }, greetingText: { fontSize: 14, color: colors.textMuted, marginBottom: 2 }, nameText: { fontSize: 20, fontWeight: '800', color: colors.textDark },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notiBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+  notiBadge: { position: 'absolute', top: -2, right: -2, backgroundColor: colors.danger, width: 14, height: 14, borderRadius: 7, justifyContent: 'center', alignItems: 'center' }, notiBadgeText: { color: '#FFF', fontSize: 8, fontWeight: 'bold' },
+  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3B82F6', justifyContent: 'center', alignItems: 'center' }, avatarText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+  progressCard: { backgroundColor: colors.primary, borderRadius: 20, padding: 16, elevation: 4, marginBottom: 16 },
+  progressContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, progressTitle: { color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: '700' }, progressBigNumber: { color: '#FFF', fontSize: 32, fontWeight: '900' }, progressSmallNumber: { color: 'rgba(255,255,255,0.8)', fontSize: 18, fontWeight: '700' }, progressSubtitle: { color: '#FFF', fontSize: 12, fontWeight: '500' },
+  upcomingSection: { flex: 1, paddingBottom: 10 }, sectionTitle: { fontSize: 16, fontWeight: '800', color: colors.textDark, marginBottom: 8 },
+  medCard: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, elevation: 2 },
+  smartWarningBox: { flexDirection: 'row', backgroundColor: '#FFEDD5', padding: 12, borderRadius: 12, marginBottom: 12, alignItems: 'flex-start', gap: 10, borderWidth: 1, borderColor: '#FDBA74' },
+  smartWarningTitle: { color: '#C2410C', fontWeight: '800', fontSize: 13, marginBottom: 4 },
+  smartWarningText: { color: '#9A3412', fontSize: 12, lineHeight: 18 },
+  filterWrapper: { marginBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 10 },
+  filterContainer: { gap: 8, paddingRight: 20 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#F1F5F9' },
+  filterChipActive: { backgroundColor: colors.primary },
+  filterChipText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  filterChipTextActive: { color: '#FFF' },
+  medListContainer: { flex: 1 }, 
+  medItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  medImageBox: { width: 64, height: 64, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
+  medImagePlaceholderText: { fontSize: 9, color: '#94A3B8', marginTop: 2, fontWeight: '600' },
+  medInfo: { flex: 1, justifyContent: 'center' }, 
+  medName: { fontSize: 16, fontWeight: '800', color: colors.textDark, flexShrink: 1 }, 
+  voiceBtn: { width: 26, height: 26, borderRadius: 13, backgroundColor: '#E0F2FE', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#BAE6FD' },
+  voiceBtnActive: { backgroundColor: colors.primary, borderColor: colors.primaryDark },
+  singleUsageRow: { flexDirection: 'row', alignItems: 'center' },
+  singleUsageText: { fontSize: 13, color: colors.textMuted, fontWeight: '600', lineHeight: 18 },
+  specialIndicatorBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'center', marginLeft: 8 },
+  specialIndicatorText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+  actionButtonGroup: { flexDirection: 'row', gap: 8, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  btnItem: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 12, borderRadius: 10 }, btnText: { color: '#FFF', fontSize: 12, fontWeight: '700' }, 
+  btnDisabled: { opacity: 0.3, backgroundColor: '#94A3B8' }, 
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, height: Platform.OS === 'ios' ? 80 : 60, backgroundColor: colors.surface, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  navItem: { alignItems: 'center', flex: 1 }, navText: { fontSize: 9, fontWeight: '600', color: colors.textMuted, marginTop: 2 }, navItemCenterWrapper: { flex: 1, alignItems: 'center' },
+  navItemCenter: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', top: -20, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 6 }
 });
