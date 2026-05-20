@@ -53,7 +53,13 @@ export default function LoginScreen() {
               (!u['Trạng thái'].toLowerCase().includes('ngừng')) 
             );
             if (isValidUser) {
-              router.replace({ pathname: '/patient-home', params: { id: savedId, name: savedName } } as any);
+              // Phân luồng auto-login: Bệnh nhân thì vào patient-home, Admin thì vào admin
+              const isPatient = isValidUser['Vai trò'] === 'Bệnh nhân';
+              if (isPatient) {
+                router.replace({ pathname: '/patient-home', params: { id: savedId, name: savedName } } as any);
+              } else {
+                router.replace('/admin');
+              }
               return;
             }
           }
@@ -102,10 +108,10 @@ export default function LoginScreen() {
           await AsyncStorage.setItem('patientName', result.name);
           router.replace({ pathname: '/patient-home', params: { id: result.user, name: result.name } } as any);
         } else { 
-          // 🔥 ĐÃ FIX LỖI ADMIN KHÔNG LƯU TÊN: 
+          // 🔥 ĐÃ FIX LỖI ĐIỀU HƯỚNG: Chuyển về trang /admin thay vì /home
           await AsyncStorage.setItem('patientId', result.user);
           await AsyncStorage.setItem('patientName', result.name);
-          router.replace('/users'); 
+          router.replace('/admin'); 
         }
       } else {
         if (Platform.OS === 'web') window.alert(result.message || 'Sai thông tin!');

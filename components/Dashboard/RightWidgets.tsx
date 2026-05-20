@@ -2,13 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useTheme } from '../../app/_layout'; // 🔥 BƯỚC 1: GỌI BỘ NÃO DARK MODE
+import { useTheme } from '../../app/_layout'; 
 
-// MỞ CỔNG NHẬN DATA TỪ ADMIN TRUYỀN XUỐNG
 export default function RightWidgets({ lastUpdate, warningCount, incidentsCount, appointmentsCount }: any) {
-  const { theme, isDark } = useTheme(); // Lấy biến màu toàn cục
+  const { theme, isDark } = useTheme(); 
 
-  // 🔥 BƯỚC 2: KHAI BÁO BẢNG MÀU ĐỘNG (SÁNG / TỐI)
   const colors = {
     dangerBg: isDark ? '#450a0a' : '#FEF2F2',
     dangerText: isDark ? '#f87171' : '#DC2626',
@@ -36,7 +34,6 @@ export default function RightWidgets({ lastUpdate, warningCount, incidentsCount,
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
         <View style={styles.statRow}>
           <Text style={[styles.statLabel, { color: theme.muted }]}>Sự cố hôm nay</Text>
-          {/* Hứng số sự cố */}
           <Text style={[styles.statValue, { color: incidentsCount > 0 ? colors.dangerText : theme.text }]}>
             {incidentsCount || 0}
           </Text>
@@ -55,11 +52,15 @@ export default function RightWidgets({ lastUpdate, warningCount, incidentsCount,
           <Text style={[styles.widgetTitleWarning, { color: theme.text }]}>Cảnh báo cần lưu ý</Text>
         </View>
         <View style={[styles.warningBox, { backgroundColor: warningCount === 0 ? theme.bg : colors.dangerBg }]}>
-          {/* Hứng số Bệnh nhân cần theo dõi */}
           <Text style={[styles.warningNumber, { color: warningCount === 0 ? theme.muted : colors.dangerText }]}>
             {warningCount || 0} <Text style={[styles.warningText, { color: warningCount === 0 ? theme.muted : (isDark ? '#fca5a5' : '#475569') }]}>BN cần theo dõi</Text>
           </Text>
-          <TouchableOpacity style={styles.warningLink}>
+          {/* 🔥 Đã thêm sự kiện chuyển trang khi bấm Xem chi tiết */}
+          <TouchableOpacity 
+            style={styles.warningLink} 
+            onPress={() => router.push('/patient')}
+            disabled={warningCount === 0}
+          >
             <Text style={[styles.warningLinkText, { color: warningCount === 0 ? theme.muted : colors.dangerText }]}>Xem chi tiết</Text>
             <MaterialCommunityIcons name="chevron-right" size={14} color={warningCount === 0 ? theme.muted : colors.dangerText} />
           </TouchableOpacity>
@@ -93,7 +94,6 @@ export default function RightWidgets({ lastUpdate, warningCount, incidentsCount,
               <Text style={[styles.actionItemText, { color: theme.text }]}>Lịch hẹn hôm nay</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {/* Hứng số lịch hẹn */}
               <View style={[styles.badgeSmall, { backgroundColor: colors.successBg }]}>
                 <Text style={[styles.badgeSmallText, { color: colors.successText }]}>{appointmentsCount || 0}</Text>
               </View>
@@ -108,7 +108,6 @@ export default function RightWidgets({ lastUpdate, warningCount, incidentsCount,
   );
 }
 
-// Lột bỏ các màu cứng (#FFF, #000) để nhường quyền cho Theme
 const styles = StyleSheet.create({
   container: { flex: 1, gap: 16, display: 'flex', flexDirection: 'column', marginTop: 12 }, 
   widgetCard: { borderRadius: 16, padding: 16, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.02, shadowRadius: 8, elevation: 1, flex: 1, justifyContent: 'center' }, 
